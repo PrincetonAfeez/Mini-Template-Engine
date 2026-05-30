@@ -7,6 +7,16 @@ from template_engine.template import Template
 
 
 class RendererTests(unittest.TestCase):
+    def test_empty_template_renders_empty(self):
+        self.assertEqual(Template("").render({}), "")
+
+    def test_large_template_renders_without_crashing(self):
+        source = "Hello {{ name }}\n" * 10_000
+        output = Template(source).render({"name": "Princeton"})
+
+        self.assertIn("Hello Princeton", output)
+        self.assertEqual(output.count("Hello Princeton"), 10_000)
+
     def test_variable_renders_and_autoescapes(self):
         output = Template("Hello {{ name }}").render({"name": "<Admin>"})
         self.assertEqual(output, "Hello &lt;Admin&gt;")

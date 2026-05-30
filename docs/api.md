@@ -8,6 +8,7 @@ from template_engine import (
     FilterRegistry,
     SafeString,
     __version__,
+    TemplateEngineError,
     LexerError,
     ParseError,
     RenderError,
@@ -86,12 +87,14 @@ All engine errors inherit from `TemplateEngineError` and expose
 `message`, `line`, and `column`.
 
 ```python
-from template_engine import format_error
+from template_engine import Template, TemplateEngineError, format_error
+
+source = "{{ x }"
 
 try:
-    Template("{{ x }", strict=True).render({})
-except RenderError as exc:
-    print(format_error(exc, source="{{ x }}"))
+    Template(source, strict=True).render({})
+except TemplateEngineError as exc:
+    print(format_error(exc, source=source))
 ```
 
 ## CLI

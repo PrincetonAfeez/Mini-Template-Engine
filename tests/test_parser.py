@@ -4,6 +4,7 @@ import unittest
 
 from template_engine.errors import ParseError
 from template_engine.lexer import lex
+from template_engine.template import Template
 from template_engine.nodes import ForNode, IfNode, TemplateNode, VariableNode
 from template_engine.parser import parse
 
@@ -50,6 +51,10 @@ class ParserTests(unittest.TestCase):
         ast = parse(lex('{% set greeting = "Hi" %}{{ greeting }}'))
         self.assertIsInstance(ast.children[0], SetNode)
         self.assertEqual(ast.children[0].name, "greeting")
+
+    def test_unclosed_string_literal_in_filter_raises(self):
+        with self.assertRaises(ParseError):
+            Template('{{ name | default("missing) }}').check()
 
 
 if __name__ == "__main__":
