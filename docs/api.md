@@ -40,9 +40,32 @@ Template(
 | Method | Description |
 |--------|-------------|
 | `register(name, function)` | Add a filter callable |
+| `get(name)` | Return a registered filter callable |
 | `apply(name, value, *args)` | Run a filter |
 | `extend(other)` | Copy filters from another registry |
-| `items()` | Return registered filter names |
+| `items()` | Return registered filter name/callable pairs |
+| `all_filters()` | Return a copy of the registered filter map |
+
+## AST schema
+
+`Template.ast()` returns a `TemplateNode` — the root of a tree of immutable dataclasses
+defined in `template_engine.nodes`.
+
+| Node | Fields | Role |
+|------|--------|------|
+| `TemplateNode` | `children: list[ASTNode]` | Root container |
+| `TextNode` | `text`, `line`, `column` | Literal text output |
+| `VariableNode` | `expression`, `line`, `column` | `{{ ... }}` output tag |
+| `RawNode` | `text`, `line`, `column` | Literal text from `{% raw %}` |
+| `IfNode` | `branches`, `else_body`, `line`, `column` | Conditional block |
+| `ForNode` | `item_name`, `iterable_expression`, `body`, `line`, `column` | Loop block |
+| `SetNode` | `name`, `expression`, `line`, `column` | `{% set %}` assignment |
+
+`IfNode.branches` is a list of `IfBranch(condition, body)` pairs. Variable output and
+loop/set expressions use the small expression types in `template_engine.expressions`
+(for example `VariableExpression`, `FilterExpression`, `LiteralExpression`).
+
+Use `template_engine.debug.dump_ast()` for a human-readable tree when debugging.
 
 ## Built-in filters
 

@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install package
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" -c constraints-dev.txt
 
       - name: Run tests
         run: coverage run -m pytest -q && coverage report --fail-under=95

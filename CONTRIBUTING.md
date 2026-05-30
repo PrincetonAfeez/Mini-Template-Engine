@@ -8,8 +8,14 @@ Thanks for your interest in Mini Template Engine.
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS/Linux
-pip install -e ".[dev]"
+pip install -e ".[dev]" -c constraints-dev.txt
 pre-commit install
+```
+
+Dev dependencies are pinned in `constraints-dev.txt`. Regenerate after changing `[project.optional-dependencies]`:
+
+```bash
+python -m piptools compile pyproject.toml --extra dev -o constraints-dev.txt
 ```
 
 ## Quality checks

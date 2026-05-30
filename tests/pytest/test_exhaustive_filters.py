@@ -58,6 +58,13 @@ class TestFilterRegistry:
         copy["upper"] = lambda v: "hacked"
         assert registry.apply("upper", "hi") == "HI"
 
+    def test_items_returns_registered_pairs(self):
+        registry = FilterRegistry()
+        registry.register("double", lambda v: v * 2)
+        pairs = dict(registry.items())
+        assert pairs["double"](5) == 10
+        assert "double" in registry.all_filters()
+
 
 class TestBuiltinFilters:
     @pytest.fixture

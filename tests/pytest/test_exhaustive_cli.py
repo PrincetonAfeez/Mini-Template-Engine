@@ -114,12 +114,14 @@ class TestLoadFilterRegistry:
 
 @pytest.mark.cli
 class TestPrintStats:
-    def test_print_stats_to_stderr(self, capsys):
+    def test_print_stats_logs_diagnostics(self, caplog):
+        import logging
+
         template = Template("{{ x }}")
-        _print_stats(template, 0.0, rendered=5)
-        captured = capsys.readouterr()
-        assert "tokens=" in captured.err
-        assert "output_chars=5" in captured.err
+        with caplog.at_level(logging.INFO, logger="template_engine.cli"):
+            _print_stats(template, 0.0, rendered=5)
+        assert "tokens=" in caplog.text
+        assert "output_chars=5" in caplog.text
 
 
 @pytest.mark.cli

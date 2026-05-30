@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import logging
 import sys
 import time
 from pathlib import Path
@@ -17,6 +18,8 @@ from .expressions import parse_literal
 from .filters import FilterRegistry, default_filter_registry
 from .template import Template
 
+logger = logging.getLogger(__name__)
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
@@ -25,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.version:
         print(__version__)
         return 0
+
+    _configure_logging(args.verbose)
 
     modes = [args.check, args.dump_tokens, args.dump_ast]
     if sum(1 for enabled in modes if enabled) > 1:
@@ -58,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.dump_tokens:
             tokens = template.tokens(include_comments=args.include_comments)
             if args.verbose:
-                print(f"tokens={len(tokens)}", file=sys.stderr)
+                logger.info("tokens=%s", len(tokens))
             print(dump_tokens(tokens))
             return 0
         if args.dump_ast:
@@ -122,9 +127,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="store_true", help="print version and exit")
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="print stage statistics to stderr"
+        "-v", "--verbose", action="store_true", help="log stage statistics to stderr"
     )
     return parser
+
+
+def _configure_logging(verbose: bool) -> None:
+    logging.basicConfig(
+        level=logging.INFO if verbose else logging.WARNING,
+        format="%(message)s",
+        stream=sys.stderr,
+        force=True,
+    )
 
 
 def _print_stats(template: Template, started: float, *, rendered: int | None = None) -> None:
@@ -134,7 +148,7 @@ def _print_stats(template: Template, started: float, *, rendered: int | None = N
     message = f"tokens={token_count} nodes={node_count} time_ms={elapsed_ms:.2f}"
     if rendered is not None:
         message += f" output_chars={rendered}"
-    print(message, file=sys.stderr)
+    logger.info(message)
 
 
 def _load_filter_registry(spec: str) -> FilterRegistry:

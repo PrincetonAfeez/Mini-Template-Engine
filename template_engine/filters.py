@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, ItemsView, Iterable
 from typing import Any
 
 from .context import MISSING
@@ -50,6 +50,11 @@ class FilterRegistry:
 
     def all_filters(self) -> dict[str, Callable[..., Any]]:
         return dict(self._filters)
+
+    def items(self) -> ItemsView[str, Callable[..., Any]]:
+        """Return registered filter name/callable pairs (like ``dict.items()``)."""
+
+        return self._filters.items()
 
 
 def default_filter_registry() -> FilterRegistry:
