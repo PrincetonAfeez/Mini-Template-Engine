@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mini-template-engine"
+version = "0.1.0"
+description = "A pure Python mini template engine with a lexer, parser, AST, renderer, and CLI."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+template-engine = "template_engine.cli:main"
+
+[tool.setuptools]
+packages = ["template_engine"]
