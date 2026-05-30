@@ -15,9 +15,13 @@ production template systems without review.
 ### Mitigations
 
 - **No arbitrary Python execution** — templates cannot call functions, methods, or `eval`.
+  Property and other descriptor getters are not invoked during attribute lookup; only
+  plain instance attributes, class data attributes, mappings, and sequences are read.
 - **No private attribute access** — names starting with `_` are rejected.
 - **HTML autoescaping on by default** — variable output is escaped unless marked `safe`.
 - **Callable rejection** — context values that resolve to callables raise `RenderError`.
+- **Trusted context** — prefer plain dictionaries (and similar mappings) when rendering
+  untrusted templates; object context is intended for simple data carriers you control.
 
 ### Known limitations
 

@@ -109,7 +109,7 @@ and whitespace trimming — see [docs/api.md](docs/api.md).
 
 ## Not Jinja
 
-- No arbitrary Python, method calls, or `eval`
+- No arbitrary Python, method calls, property getters, or `eval`
 - No includes/macros ([ADR 0005](docs/adr/0005-single-file-templates-only.md))
 - `for` rejects strings; dict loops iterate keys
 - Literal `{{` / `{%` require `{% raw %}`

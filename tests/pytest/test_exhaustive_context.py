@@ -87,14 +87,14 @@ class TestContextStack:
         with pytest.raises(RenderError, match="callable"):
             stack.resolve(("obj", "method"))
 
-    def test_resolve_resolution_error_wrapped(self):
+    def test_resolve_property_access_rejected(self):
         class BadAttr:
             @property
             def boom(self):
                 raise TypeError("boom")
 
         stack = ContextStack({"obj": BadAttr()})
-        with pytest.raises(RenderError, match="could not be resolved"):
+        with pytest.raises(RenderError, match="property access"):
             stack.resolve(("obj", "boom"))
 
     def test_push_pop_scopes(self):

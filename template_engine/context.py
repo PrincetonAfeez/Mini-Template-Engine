@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
+from types import MemberDescriptorType
 from typing import Any
 
 from .errors import RenderError
@@ -150,15 +152,16 @@ class ContextStack:
                     )
                 return result
 
-            if hasattr(value, part):
-                result = getattr(value, part)
-                if callable(result):
-                    raise RenderError(
-                        f"variable {full_path!r} resolved to a callable",
-                        line=line,
-                        column=column,
-                    )
-                return result
+            object_result = self._resolve_object_attribute(
+                value,
+                part,
+                full_path=full_path,
+                line=line,
+                column=column,
+                lenient=lenient,
+            )
+            if object_result is not MISSING:
+                return object_result
         except RenderError:
             raise
         except Exception as exc:
@@ -169,6 +172,70 @@ class ContextStack:
             ) from exc
 
         return self._missing(full_path, line=line, column=column, lenient=lenient)
+
+    def _resolve_object_attribute(
+        self,
+        value: Any,
+        part: str,
+        *,
+        full_path: str,
+        line: int | None,
+        column: int | None,
+        lenient: bool,
+    ) -> Any:
+        try:
+            instance_values = vars(value)
+        except TypeError:
+            instance_values = {}
+
+        if part in instance_values:
+            result = instance_values[part]
+            if callable(result):
+                raise RenderError(
+                    f"variable {full_path!r} resolved to a callable",
+                    line=line,
+                    column=column,
+                )
+            return result
+
+        for cls in type(value).__mro__:
+            if part not in cls.__dict__:
+                continue
+            member = cls.__dict__[part]
+            if isinstance(member, (property, cached_property)):
+                raise RenderError(
+                    f"variable {full_path!r} uses property access, which is not allowed",
+                    line=line,
+                    column=column,
+                )
+            if callable(member):
+                raise RenderError(
+                    f"variable {full_path!r} resolved to a callable",
+                    line=line,
+                    column=column,
+                )
+            if isinstance(member, MemberDescriptorType):
+                result = object.__getattribute__(value, part)
+                if callable(result):
+                    raise RenderError(
+                        f"variable {full_path!r} resolved to a callable",
+                        line=line,
+                        column=column,
+                    )
+                return result
+            return member
+
+        try:
+            result = object.__getattribute__(value, part)
+        except AttributeError:
+            return self._missing(full_path, line=line, column=column, lenient=lenient)
+        if callable(result):
+            raise RenderError(
+                f"variable {full_path!r} resolved to a callable",
+                line=line,
+                column=column,
+            )
+        return result
 
     def _reject_private(self, name: str, *, line: int | None, column: int | None) -> None:
         if name.startswith("_"):

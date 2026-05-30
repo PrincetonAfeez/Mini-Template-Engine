@@ -43,6 +43,24 @@ class ContextTests(unittest.TestCase):
         with self.assertRaises(RenderError):
             stack.resolve(("user", "method"))
 
+    def test_property_getter_is_not_executed_by_template_lookup(self):
+        class Dangerous:
+            def __init__(self):
+                self.accessed = False
+
+            @property
+            def secret(self):
+                self.accessed = True
+                return "should not run"
+
+        obj = Dangerous()
+        stack = ContextStack({"user": obj})
+
+        with self.assertRaises(RenderError):
+            stack.resolve(("user", "secret"))
+
+        self.assertFalse(obj.accessed)
+
     def test_child_scope_shadows_without_mutating_parent(self):
         context = {"name": "outer"}
         stack = ContextStack(context)
