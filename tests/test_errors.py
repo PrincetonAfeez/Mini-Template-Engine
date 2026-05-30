@@ -1,4 +1,4 @@
-""" Test the error classes. """
+"""Test the error classes."""
 
 import unittest
 

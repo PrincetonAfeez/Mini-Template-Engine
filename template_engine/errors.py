@@ -37,3 +37,22 @@ class ParseError(TemplateEngineError):
 
 class RenderError(TemplateEngineError):
     """Raised when rendering fails at runtime."""
+
+
+def format_error(error: TemplateEngineError, source: str | None = None) -> str:
+    """Format an engine error, optionally with a source line excerpt."""
+
+    lines = [str(error)]
+    if source is None or error.line is None or error.line < 1:
+        return lines[0]
+
+    source_lines = source.splitlines()
+    if error.line > len(source_lines):
+        return lines[0]
+
+    line_text = source_lines[error.line - 1]
+    lines.append(f"  > {line_text}")
+    if error.column is not None and error.column > 0:
+        pointer = " " * (4 + error.column - 1) + "^"
+        lines.append(pointer)
+    return "\n".join(lines)

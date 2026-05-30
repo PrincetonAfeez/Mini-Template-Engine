@@ -1,4 +1,4 @@
-""" Test the filter registry. """
+"""Test the filter registry."""
 
 import unittest
 
@@ -17,6 +17,13 @@ class FilterTests(unittest.TestCase):
         self.assertEqual(registry.apply("length", [1, 2, 3]), 3)
         self.assertEqual(registry.apply("join", ["a", "b"], ", "), "a, b")
         self.assertEqual(registry.apply("round", 1.234, 2), 1.23)
+        self.assertEqual(registry.apply("default_if_none", None, "N/A"), "N/A")
+        self.assertEqual(registry.apply("default_if_none", "", "N/A"), "")
+
+    def test_join_rejects_strings(self):
+        registry = default_filter_registry()
+        with self.assertRaises(RenderError):
+            registry.apply("join", "abc", ", ")
 
     def test_safe_and_escape(self):
         registry = default_filter_registry()

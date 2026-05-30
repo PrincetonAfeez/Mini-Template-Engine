@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from .errors import LexerError
 from .tokens import Token, TokenType
 
-_ENDRAW_RE = re.compile(r"{%-?\s*endraw\s*-?%}")
+_ENDRAW_RE = re.compile(r"{%-?\s*endraw\s*-?%}", flags=re.IGNORECASE)
 
 
 def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
@@ -93,7 +93,7 @@ def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
         if token.trim_left:
             trim_previous()
 
-        if token.value.strip() == "raw":
+        if token.value.strip().lower() == "raw":
             raw_start = next_after_block
             match = _ENDRAW_RE.search(source, raw_start)
             if match is None:

@@ -10,6 +10,13 @@ from .context import MISSING
 from .errors import RenderError
 from .escape import SafeString, escape_html, mark_safe
 
+# Re-export for callers that import SafeString from this module.
+__all__ = [
+    "FilterRegistry",
+    "SafeString",
+    "default_filter_registry",
+]
+
 
 class FilterRegistry:
     def __init__(self) -> None:
@@ -35,6 +42,15 @@ class FilterRegistry:
         except Exception as exc:  # noqa: BLE001 - convert expected filter failures for users.
             raise RenderError(f"filter {name!r} failed: {exc}") from exc
 
+    def extend(self, other: FilterRegistry) -> None:
+        """Register all filters from another registry, overwriting on name clash."""
+
+        for name, function in other.all_filters().items():
+            self.register(name, function)
+
+    def all_filters(self) -> dict[str, Callable[..., Any]]:
+        return dict(self._filters)
+
 
 def default_filter_registry() -> FilterRegistry:
     registry = FilterRegistry()
@@ -43,6 +59,7 @@ def default_filter_registry() -> FilterRegistry:
     registry.register("title", _title)
     registry.register("trim", _trim)
     registry.register("default", _default)
+    registry.register("default_if_none", _default_if_none)
     registry.register("length", _length)
     registry.register("join", _join)
     registry.register("round", _round)
@@ -79,6 +96,12 @@ def _default(value: Any, fallback: Any = "") -> Any:
     return value
 
 
+def _default_if_none(value: Any, fallback: Any = "") -> Any:
+    if value is MISSING or value is None:
+        return fallback
+    return value
+
+
 def _length(value: Any) -> int:
     if value is MISSING or value is None:
         return 0
@@ -89,7 +112,7 @@ def _join(value: Any, separator: Any = "") -> str:
     if value is MISSING or value is None:
         return ""
     if isinstance(value, str):
-        return value
+        raise RenderError("join filter expected an iterable, not a string")
     if not isinstance(value, Iterable):
         raise RenderError("join filter expected an iterable")
     return str(separator).join(str(item) for item in value)

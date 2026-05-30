@@ -1,4 +1,4 @@
-""" Test the parser. """
+"""Test the parser."""
 
 import unittest
 
@@ -27,11 +27,7 @@ class ParserTests(unittest.TestCase):
 
     def test_nested_blocks_parse(self):
         ast = parse(
-            lex(
-                "{% for user in users %}"
-                "{% if user.active %}{{ user.name }}{% endif %}"
-                "{% endfor %}"
-            )
+            lex("{% for user in users %}{% if user.active %}{{ user.name }}{% endif %}{% endfor %}")
         )
         self.assertIsInstance(ast.children[0], ForNode)
         self.assertIsInstance(ast.children[0].body[0], IfNode)
@@ -47,6 +43,13 @@ class ParserTests(unittest.TestCase):
     def test_malformed_for_raises(self):
         with self.assertRaises(ParseError):
             parse(lex("{% for user users %}{% endfor %}"))
+
+    def test_set_block_parses(self):
+        from template_engine.nodes import SetNode
+
+        ast = parse(lex('{% set greeting = "Hi" %}{{ greeting }}'))
+        self.assertIsInstance(ast.children[0], SetNode)
+        self.assertEqual(ast.children[0].name, "greeting")
 
 
 if __name__ == "__main__":

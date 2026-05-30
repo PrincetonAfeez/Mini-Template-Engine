@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
+from ._version import __version__
 from .debug import dump_ast, dump_tokens
-from .errors import TemplateEngineError
+from .errors import TemplateEngineError, format_error
 from .expressions import parse_literal
+from .filters import FilterRegistry, default_filter_registry
 from .template import Template
 
 
@@ -18,45 +22,66 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    if args.version:
+        print(__version__)
+        return 0
+
     modes = [args.check, args.dump_tokens, args.dump_ast]
     if sum(1 for enabled in modes if enabled) > 1:
         parser.error("--check, --dump-tokens, and --dump-ast are mutually exclusive")
 
+    source = ""
     try:
         source = _read_template(args.template)
         context = _read_context(args.context)
         for assignment in args.set_values:
             _apply_assignment(context, assignment)
 
+        filters = default_filter_registry()
+        if args.filter_module:
+            filters.extend(_load_filter_registry(args.filter_module))
+
+        started = time.perf_counter()
         template = Template(
             source,
             strict=args.strict,
             autoescape=not args.no_autoescape,
+            filters=filters,
         )
 
         if args.check:
             template.check()
+            if args.verbose:
+                _print_stats(template, started)
             print("ok")
             return 0
         if args.dump_tokens:
-            print(dump_tokens(template.tokens()))
+            tokens = template.tokens(include_comments=args.include_comments)
+            if args.verbose:
+                print(f"tokens={len(tokens)}", file=sys.stderr)
+            print(dump_tokens(tokens))
             return 0
         if args.dump_ast:
-            print(dump_ast(template.ast()))
+            ast = template.ast()
+            if args.verbose:
+                _print_stats(template, started)
+            print(dump_ast(ast))
             return 0
 
         output = template.render(context)
+        if args.verbose:
+            _print_stats(template, started, rendered=len(output))
         if args.output:
             Path(args.output).write_text(output, encoding="utf-8")
         else:
             sys.stdout.write(output)
         return 0
 
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError, ModuleNotFoundError, AttributeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except TemplateEngineError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(format_error(exc, source), file=sys.stderr)
         return 1
     except Exception as exc:  # noqa: BLE001 - CLI boundary converts unexpected failures.
         print(f"internal error: {exc}", file=sys.stderr)
@@ -65,16 +90,67 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="template-engine")
-    parser.add_argument("template", help="template path, or '-' to read from stdin")
+    parser.add_argument(
+        "template", nargs="?", default="-", help="template path, or '-' to read from stdin"
+    )
     parser.add_argument("--context", help="JSON context file")
-    parser.add_argument("--set", dest="set_values", action="append", default=[], help="inline key=value context value")
+    parser.add_argument(
+        "--set",
+        dest="set_values",
+        action="append",
+        default=[],
+        help="inline key=value context value",
+    )
     parser.add_argument("-o", "--output", help="write rendered output to this file")
-    parser.add_argument("--strict", action="store_true", help="raise when variables are missing")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="raise on missing variables and invalid loop iterables",
+    )
     parser.add_argument("--no-autoescape", action="store_true", help="disable HTML autoescaping")
     parser.add_argument("--check", action="store_true", help="parse only and report syntax errors")
     parser.add_argument("--dump-tokens", action="store_true", help="print the token stream")
     parser.add_argument("--dump-ast", action="store_true", help="print the parsed AST")
+    parser.add_argument(
+        "--include-comments",
+        action="store_true",
+        help="include comment tokens when dumping the token stream",
+    )
+    parser.add_argument(
+        "--filter-module",
+        help="import path to a FilterRegistry or module:attribute providing one",
+    )
+    parser.add_argument("--version", action="store_true", help="print version and exit")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="print stage statistics to stderr"
+    )
     return parser
+
+
+def _print_stats(template: Template, started: float, *, rendered: int | None = None) -> None:
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    token_count = len(template.tokens())
+    node_count = len(template.ast().children)
+    message = f"tokens={token_count} nodes={node_count} time_ms={elapsed_ms:.2f}"
+    if rendered is not None:
+        message += f" output_chars={rendered}"
+    print(message, file=sys.stderr)
+
+
+def _load_filter_registry(spec: str) -> FilterRegistry:
+    module_name, _, attr = spec.partition(":")
+    attr = attr or "filter_registry"
+    try:
+        module = importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(f"could not import filter module {module_name!r}") from exc
+    try:
+        registry = getattr(module, attr)
+    except AttributeError as exc:
+        raise AttributeError(f"module {module_name!r} has no attribute {attr!r}") from exc
+    if not isinstance(registry, FilterRegistry):
+        raise ValueError(f"{spec!r} did not resolve to a FilterRegistry")
+    return registry
 
 
 def _read_template(path: str) -> str:

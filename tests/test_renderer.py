@@ -1,4 +1,4 @@
-""" Test the renderer. """
+"""Test the renderer."""
 
 import unittest
 
@@ -49,6 +49,36 @@ class RendererTests(unittest.TestCase):
     def test_non_iterable_loop_lenient_renders_nothing(self):
         output = Template("A{% for x in value %}{{ x }}{% endfor %}B").render({"value": "abc"})
         self.assertEqual(output, "AB")
+
+    def test_keyword_literals_render(self):
+        output = Template("{{ true }}-{{ false }}-{{ none }}").render({})
+        self.assertEqual(output, "True-False-")
+
+    def test_strict_default_filter_still_works(self):
+        output = Template('{{ missing | default("N/A") }}', strict=True).render({})
+        self.assertEqual(output, "N/A")
+
+    def test_set_block_renders(self):
+        output = Template('{% set label = "Hi" %}{{ label }} {{ name }}').render({"name": "there"})
+        self.assertEqual(output, "Hi there")
+
+    def test_variable_condition_comparison(self):
+        source = "{% if user.role == expected %}yes{% else %}no{% endif %}"
+        output = Template(source).render({"user": {"role": "admin"}, "expected": "admin"})
+        self.assertEqual(output, "yes")
+
+    def test_list_index_in_template(self):
+        output = Template("{{ items.0 }}").render({"items": ["alpha", "beta"]})
+        self.assertEqual(output, "alpha")
+
+    def test_property_resolution_error_becomes_render_error(self):
+        class Broken:
+            @property
+            def value(self):
+                raise RuntimeError("boom")
+
+        with self.assertRaises(RenderError):
+            Template("{{ item.value }}").render({"item": Broken()})
 
 
 if __name__ == "__main__":

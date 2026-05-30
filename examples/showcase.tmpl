@@ -1,0 +1,17 @@
+# Showcase: portfolio centerpiece template
+# Render with: python -m template_engine examples/showcase.tmpl --context examples/context.json
+
+{% set title = "Invoice" %}
+{{ title }} for {{ user.name | title }}
+
+Line items:
+{% for item in items %}
+- {{ loop.index }}. {{ item | title }}
+{% endfor %}
+
+Subtotal: {{ price | round(2) }}
+Status: {% if user.is_admin %}VIP{% else %}Standard{% endif %}
+
+{% raw %}
+Documentation marker preserved: {{ not_rendered }}
+{% endraw %}

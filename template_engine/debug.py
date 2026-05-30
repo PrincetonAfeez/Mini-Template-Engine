@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from .expressions import ConditionExpression, FilterExpression, LiteralExpression, VariableExpression
-from .nodes import ForNode, IfNode, RawNode, TemplateNode, TextNode, VariableNode
+from .expressions import (
+    ConditionExpression,
+    FilterExpression,
+    LiteralExpression,
+    VariableExpression,
+)
+from .nodes import ForNode, IfNode, RawNode, SetNode, TemplateNode, TextNode, VariableNode
 from .tokens import Token
 
 
@@ -64,6 +69,9 @@ def _dump_node(node: Any, lines: list[str], indent: int) -> None:
         for child in node.body:
             _dump_node(child, lines, indent + 1)
         return
+    if isinstance(node, SetNode):
+        lines.append(f"{prefix}SetNode({node.name} = {_format_expression(node.expression)})")
+        return
     lines.append(f"{prefix}{type(node).__name__}")
 
 
@@ -74,7 +82,7 @@ def _format_expression(expression: Any) -> str:
         return repr(expression.value)
     if isinstance(expression, FilterExpression):
         filters = " | ".join(
-            f"{call.name}({', '.join(repr(arg) for arg in call.args)})"
+            f"{call.name}({', '.join(_format_expression(arg) for arg in call.args)})"
             if call.args
             else call.name
             for call in expression.filters

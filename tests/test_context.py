@@ -1,8 +1,8 @@
-""" Test the context stack. """
+"""Test the context stack."""
 
 import unittest
 
-from template_engine.context import ContextStack, MISSING
+from template_engine.context import MISSING, ContextStack
 from template_engine.errors import RenderError
 
 
@@ -19,6 +19,10 @@ class ContextTests(unittest.TestCase):
     def test_dict_and_object_lookup(self):
         stack = ContextStack({"user": {"profile": User()}})
         self.assertEqual(stack.resolve(("user", "profile", "name")), "Princeton")
+
+    def test_list_index_lookup(self):
+        stack = ContextStack({"items": [{"name": "first"}, {"name": "second"}]})
+        self.assertEqual(stack.resolve(("items", "0", "name")), "first")
 
     def test_missing_lenient_returns_sentinel(self):
         stack = ContextStack({}, strict=False)

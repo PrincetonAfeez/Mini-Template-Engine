@@ -1,4 +1,4 @@
-""" Test the escape helpers. """
+"""Test the escape helpers."""
 
 import unittest
 
@@ -10,7 +10,7 @@ class EscapeTests(unittest.TestCase):
     def test_escape_html_returns_safe_string(self):
         value = escape_html('<a href="x">Hi</a>')
         self.assertIsInstance(value, SafeString)
-        self.assertEqual(value, '&lt;a href=&quot;x&quot;&gt;Hi&lt;/a&gt;')
+        self.assertEqual(value, "&lt;a href=&quot;x&quot;&gt;Hi&lt;/a&gt;")
 
     def test_mark_safe_returns_safe_string(self):
         value = mark_safe("<b>x</b>")

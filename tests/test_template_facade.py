@@ -1,4 +1,4 @@
-""" Test the template facade. """
+"""Test the template facade."""
 
 import unittest
 
@@ -12,7 +12,7 @@ class TemplateFacadeTests(unittest.TestCase):
         template = Template("Hello {{ name }}")
         self.assertEqual(template.tokens()[0].type, TokenType.TEXT)
         self.assertIsInstance(template.ast(), TemplateNode)
-        self.assertIsNone(template.check())
+        self.assertIs(template.check(), template)
         self.assertEqual(template.render({"name": "A"}), "Hello A")
         self.assertEqual(template.render({"name": "B"}), "Hello B")
 
