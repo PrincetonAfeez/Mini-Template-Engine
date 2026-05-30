@@ -1,0 +1,8 @@
+Invoice for {{ user.name | title }}
+
+Items: {{ items | join(", ") }}
+Rounded price: {{ price | round(2) }}
+
+{% raw %}
+Literal template marker: {{ not_rendered }}
+{% endraw %}
