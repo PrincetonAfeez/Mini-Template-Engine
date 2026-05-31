@@ -6,6 +6,7 @@ import argparse
 import importlib
 import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -19,6 +20,8 @@ from .filters import FilterRegistry, default_filter_registry
 from .template import Template
 
 logger = logging.getLogger(__name__)
+
+_SET_KEY_SEGMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -95,9 +98,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="template-engine")
-    parser.add_argument(
-        "template", nargs="?", default="-", help="template path, or '-' to read from stdin"
-    )
+    parser.add_argument("template", nargs="?", default="-", help="template path, or '-' to read from stdin")
     parser.add_argument("--context", help="JSON context file")
     parser.add_argument(
         "--set",
@@ -126,9 +127,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="import path to a FilterRegistry or module:attribute providing one",
     )
     parser.add_argument("--version", action="store_true", help="print version and exit")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="log stage statistics to stderr"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="log stage statistics to stderr")
     return parser
 
 
@@ -144,8 +143,8 @@ def _configure_logging(verbose: bool) -> None:
 def _print_stats(template: Template, started: float, *, rendered: int | None = None) -> None:
     elapsed_ms = (time.perf_counter() - started) * 1000
     token_count = len(template.tokens())
-    node_count = len(template.ast().children)
-    message = f"tokens={token_count} nodes={node_count} time_ms={elapsed_ms:.2f}"
+    top_level_nodes = len(template.ast().children)
+    message = f"tokens={token_count} top_level_nodes={top_level_nodes} time_ms={elapsed_ms:.2f}"
     if rendered is not None:
         message += f" output_chars={rendered}"
     logger.info(message)
@@ -197,15 +196,14 @@ def _apply_assignment(context: dict[str, Any], assignment: str) -> None:
 
     target = context
     parts = key.split(".")
-    for part in parts[:-1]:
-        if not part:
+    for part in parts:
+        if not _SET_KEY_SEGMENT_RE.match(part):
             raise ValueError(f"invalid --set key {key!r}")
+    for part in parts[:-1]:
         child = target.setdefault(part, {})
         if not isinstance(child, dict):
             raise ValueError(f"cannot assign nested key through non-object value {part!r}")
         target = child
-    if not parts[-1]:
-        raise ValueError(f"invalid --set key {key!r}")
     target[parts[-1]] = value
 
 

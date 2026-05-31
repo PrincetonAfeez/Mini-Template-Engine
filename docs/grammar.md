@@ -46,6 +46,11 @@ bool         = "true" | "false" ;
 null         = "none" | "null" ;
 ```
 
+String literals use Python's literal syntax (parsed via `ast.literal_eval`),
+which means escape sequences such as `\n`, `\t`, `\xHH`, `\uHHHH`, and
+`\N{name}` are honored inside `"..."` and `'...'`. Both quote styles are
+supported; the leading and trailing quote characters must match.
+
 ## Conditions
 
 ```ebnf
@@ -62,3 +67,10 @@ identifier   = ( letter | "_" ) { letter | digit | "_" } ;
 ```
 
 Names starting with `_` are forbidden in templates.
+
+## Case sensitivity
+
+All keywords are case-sensitive and must be lowercase. This includes block
+keywords (`if`, `elif`, `else`, `endif`, `for`, `in`, `endfor`, `set`, `raw`,
+`endraw`), the `not` operator, and the literal keywords (`true`, `false`,
+`none`, `null`). `{% IF %}`, `{% Raw %}`, and `{{ TRUE }}` are syntax errors.

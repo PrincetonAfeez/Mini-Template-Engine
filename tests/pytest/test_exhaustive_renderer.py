@@ -30,7 +30,7 @@ class TestRendererBasics:
     def test_render_template_node(self):
         renderer = Renderer()
         stack = ContextStack({})
-        inner = TemplateNode([TextNode("x", 1, 1)])
+        inner = TemplateNode((TextNode("x", 1, 1),))
         assert renderer._render_node(inner, stack) == "x"
 
     def test_autoescape(self):
@@ -72,13 +72,9 @@ class TestRendererConditions:
             left = VariableExpression(("flag",)) if "flag" in context else VariableExpression(("a",))
             condition = ConditionExpression(kind, left)
         elif kind == "equals":
-            condition = ConditionExpression(
-                "equals", VariableExpression(("a",)), VariableExpression(("b",))
-            )
+            condition = ConditionExpression("equals", VariableExpression(("a",)), VariableExpression(("b",)))
         else:
-            condition = ConditionExpression(
-                "not_equals", VariableExpression(("a",)), VariableExpression(("b",))
-            )
+            condition = ConditionExpression("not_equals", VariableExpression(("a",)), VariableExpression(("b",)))
         assert renderer._evaluate_condition(condition, stack, line=1, column=1) is expected
 
     def test_equals_missing_right(self, renderer):
@@ -102,9 +98,7 @@ class TestRendererConditions:
 
 class TestRendererForLoop:
     def test_for_loop_with_loop_helper(self):
-        out = Template("{% for x in items %}{{ loop.index }}{% endfor %}").render(
-            {"items": ["a", "b"]}
-        )
+        out = Template("{% for x in items %}{{ loop.index }}{% endfor %}").render({"items": ["a", "b"]})
         assert out == "12"
 
     def test_for_missing_iterable_non_strict(self):
@@ -128,7 +122,7 @@ class TestRendererForLoop:
     def test_for_bytes_rejected_strict(self):
         renderer = Renderer(strict=True)
         stack = ContextStack({"items": b"abc"})
-        node = ForNode("x", VariableExpression(("items",)), [], 1, 1)
+        node = ForNode("x", VariableExpression(("items",)), (), 1, 1)
         with pytest.raises(RenderError):
             renderer._render_for(node, stack)
 
@@ -165,7 +159,7 @@ class TestRendererExpressions:
         stack = ContextStack({})
         expr = FilterExpression(
             base=VariableExpression(("x",)),
-            filters=[FilterCall("bad", [])],
+            filters=(FilterCall("bad", ()),),
         )
         with pytest.raises(RenderError) as exc:
             renderer._evaluate(expr, stack, line=5, column=3)
@@ -177,7 +171,7 @@ class TestRendererExpressions:
         registry.register("bad", lambda _v: (_ for _ in ()).throw(RenderError("fail", line=9, column=9)))
         renderer = Renderer(filters=registry)
         stack = ContextStack({})
-        expr = FilterExpression(base=LiteralExpression("x"), filters=[FilterCall("bad", [])])
+        expr = FilterExpression(base=LiteralExpression("x"), filters=(FilterCall("bad", ()),))
         with pytest.raises(RenderError) as exc:
             renderer._evaluate(expr, stack, line=5, column=3)
         assert exc.value.line == 9

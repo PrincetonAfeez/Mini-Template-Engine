@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class TemplateNode:
     """Root node containing top-level template children."""
 
-    children: list[ASTNode]
+    children: tuple[ASTNode, ...]
 
 
 @dataclass(frozen=True)
@@ -48,15 +48,15 @@ class IfBranch:
     """One branch of an if/elif chain."""
 
     condition: ConditionExpression
-    body: list[ASTNode]
+    body: tuple[ASTNode, ...]
 
 
 @dataclass(frozen=True)
 class IfNode:
     """Conditional block."""
 
-    branches: list[IfBranch]
-    else_body: list[ASTNode]
+    branches: tuple[IfBranch, ...]
+    else_body: tuple[ASTNode, ...]
     line: int
     column: int
 
@@ -67,7 +67,7 @@ class ForNode:
 
     item_name: str
     iterable_expression: Expression
-    body: list[ASTNode]
+    body: tuple[ASTNode, ...]
     line: int
     column: int
 

@@ -128,7 +128,8 @@ and whitespace trimming — see [docs/api.md](docs/api.md).
 
 ## Benchmarks
 
-Run locally (includes stage timings and a `cProfile` summary):
+Run locally (includes stage timings and a `cProfile` summary; requires the
+package to be installed — e.g. `pip install -e .` — so the import resolves):
 
 ```bash
 python benchmarks/render_bench.py

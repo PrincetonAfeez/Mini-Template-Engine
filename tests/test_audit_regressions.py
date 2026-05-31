@@ -31,9 +31,11 @@ class AuditRegressionTests(unittest.TestCase):
         with self.assertRaises(RenderError):
             Template("{{ item.value }}").render({"item": Broken()})
 
-    def test_04_endraw_case_insensitive(self):
-        tokens = list(lex("{% raw %}x{% ENDRAW %}"))
-        self.assertEqual(tokens[0].type, TokenType.RAW)
+    def test_04_endraw_is_case_sensitive(self):
+        from template_engine.errors import LexerError
+
+        with self.assertRaises(LexerError):
+            list(lex("{% raw %}x{% ENDRAW %}"))
 
     def test_05_variable_condition_comparison(self):
         source = "{% if user.role == expected %}yes{% endif %}"

@@ -27,17 +27,17 @@ class Template:
         self.strict = strict
         self.autoescape = autoescape
         self.filters = filters
-        self._tokens: list[Token] | None = None
+        self._token_cache: dict[bool, list[Token]] = {}
         self._ast: TemplateNode | None = None
 
     def tokens(self, *, include_comments: bool = False) -> list[Token]:
         """Return the token stream, optionally including comment tokens."""
 
-        if include_comments:
-            return list(lex(self.source, include_comments=True))
-        if self._tokens is None:
-            self._tokens = list(lex(self.source))
-        return list(self._tokens)
+        cached = self._token_cache.get(include_comments)
+        if cached is None:
+            cached = list(lex(self.source, include_comments=include_comments))
+            self._token_cache[include_comments] = cached
+        return list(cached)
 
     def ast(self) -> TemplateNode:
         """Parse and cache the template AST."""

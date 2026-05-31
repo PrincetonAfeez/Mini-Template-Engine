@@ -25,10 +25,9 @@ class TestEscape:
         ("raw", "expected"),
         [
             ("<script>", "&lt;script&gt;"),
-            ('a & b', "a &amp; b"),
+            ("a & b", "a &amp; b"),
             ('"quote"', "&quot;quote&quot;"),
             ("", ""),
-            (None, "None"),
             (42, "42"),
         ],
     )
@@ -39,6 +38,12 @@ class TestEscape:
 
     def test_escape_html_missing(self):
         assert escape_html(MISSING) == ""
+
+    def test_escape_html_none(self):
+        assert escape_html(None) == ""
+
+    def test_mark_safe_none(self):
+        assert mark_safe(None) == ""
 
     def test_escape_html_safe_passthrough(self):
         safe = SafeString("<b>ok</b>")

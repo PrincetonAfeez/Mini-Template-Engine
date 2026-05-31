@@ -14,7 +14,7 @@ from template_engine.expressions import (
 class ExpressionBranchTests(unittest.TestCase):
     def test_invalid_string_literals(self):
         with self.assertRaises(ParseError):
-            parse_literal('"mismatch\'')
+            parse_literal("\"mismatch'")
         with self.assertRaises(ParseError):
             parse_literal("''bad")
 

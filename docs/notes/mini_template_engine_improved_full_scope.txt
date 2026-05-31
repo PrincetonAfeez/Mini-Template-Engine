@@ -1,0 +1,1242 @@
+MINI TEMPLATE ENGINE - BUILD-READY SCOPE
+Python Library + CLI
+
+Status:
+- This is a scope and architecture document only.
+- Do not build the app from this file until implementation is requested.
+
+Primary recommendation:
+- Build the engine as a pure Python library first.
+- Add the CLI as a thin adapter over the library.
+- Keep Django + HTMX out of version 1. Add it later only as a showcase.
+- Keep the language intentionally small. The goal is to learn lexing, parsing,
+  AST design, recursive rendering, scoping, and safe expression handling.
+
+===============================================================================
+1. PROJECT PURPOSE
+===============================================================================
+
+Build a small template engine that turns template source text into rendered
+output by using a staged compiler-style pipeline:
+
+1. Lexer: source text -> tokens
+2. Parser: tokens -> AST
+3. Renderer: AST + context -> output string
+
+Example template:
+
+Hello, {{ user.name }}!
+
+{% if user.is_admin %}
+Welcome back, admin.
+{% else %}
+Welcome back.
+{% endif %}
+
+Example context:
+
+{
+  "user": {
+    "name": "Princeton",
+    "is_admin": true
+  }
+}
+
+Rendered output:
+
+Hello, Princeton!
+
+Welcome back, admin.
+
+The library is the real project. The CLI exists to make the library usable and
+inspectable from the terminal.
+
+===============================================================================
+2. LOCKED DECISIONS
+===============================================================================
+
+Runtime:
+- Python
+- Standard library only for runtime code
+- Test tooling may use pytest if desired
+
+Main surface:
+- Python library
+- argparse CLI
+
+Evaluation model:
+- Tree-walking interpreter
+- Parse once into an AST
+- Render by recursively walking the AST
+- No compile-to-Python
+- No bytecode
+
+Security and language limits:
+- No eval
+- No arbitrary Python expressions
+- No method calls from templates
+- No private attribute access
+- No imports from templates
+- No template inheritance in version 1
+- No includes in version 1
+
+Escaping:
+- Autoescaping is on by default
+- The safe filter opts out for trusted values
+- CLI supports --no-autoescape for plain-text templates
+
+Public errors:
+- TemplateEngineError
+- LexerError
+- ParseError
+- RenderError
+
+Recommendation:
+- Do not expose ExpressionError or FilterError as required public errors in v1.
+- Invalid expression syntax should raise ParseError.
+- Unknown filters or filter runtime failures should raise RenderError.
+
+===============================================================================
+3. VERSION BOUNDARIES
+===============================================================================
+
+-------------------------------------------------------------------------------
+3.1 MVP
+-------------------------------------------------------------------------------
+
+The MVP proves the full staged pipeline with the smallest useful language.
+
+MVP library:
+- Token and TokenType
+- LexerError, ParseError, RenderError
+- TEXT, VARIABLE, COMMENT, EOF tokens
+- Position tracking for tokens
+- TextNode, VariableNode, TemplateNode
+- Parser for text and variables
+- Expression parser for dotted variable lookup
+- Context resolver
+- Renderer for text and variables
+- Autoescaping
+- safe and escape filters
+- Template facade: Template(source).render(context)
+
+MVP CLI:
+- Render template file
+- Render from stdin with "-"
+- Read context from JSON file
+- Write rendered output to stdout
+- Write rendered output to file with -o
+- --check to validate syntax without rendering
+- Clean exit codes
+
+MVP tests:
+- Lexer basics
+- Parser basics
+- Dotted variable rendering
+- Missing variable behavior
+- Autoescaping
+- safe filter
+- CLI render
+- CLI --check
+
+MVP does not include:
+- if blocks
+- for loops
+- elif
+- raw blocks
+- whitespace control
+- filter arguments beyond safe/escape
+- token dump
+- AST dump
+- Django
+
+-------------------------------------------------------------------------------
+3.2 Version 1
+-------------------------------------------------------------------------------
+
+Version 1 adds the complete small template language.
+
+V1 library:
+- IfNode and IfBranch
+- ForNode
+- RawNode
+- if / elif / else / endif
+- for item in items / endfor
+- loop.index
+- loop.index0
+- loop.first
+- loop.last
+- loop.length
+- Child scope for each loop iteration
+- Strict and lenient missing variable modes
+- Filter chains
+- Literal filter arguments
+- Built-in filter registry
+- Custom filter registration
+- Comments
+- Raw blocks
+- Token dump helper
+- AST pretty-print helper
+
+V1 CLI:
+- --strict
+- --no-autoescape
+- --set key=value
+- --dump-tokens
+- --dump-ast
+
+V1 tests:
+- Nested if blocks
+- Nested for loops
+- if inside for
+- for inside if
+- if/elif/else branch selection
+- Loop helpers
+- Scope shadowing
+- Filter chains
+- Filter arguments
+- Unknown filter errors
+- Raw block rendering
+- Token dump output
+- AST dump output
+- Helpful error locations
+
+-------------------------------------------------------------------------------
+3.3 V1 Polish, Build Only After Core V1 Works
+-------------------------------------------------------------------------------
+
+These features are useful but should not block a working V1:
+
+- Whitespace control with {{- -}}, {%- -%}, and {#- -#}
+- Better source snippets in errors
+- More examples
+- Syntax guide
+
+Recommendation:
+- Treat whitespace control as polish, not core architecture. It is easy to get
+  wrong and should be implemented after lexer, parser, renderer, if blocks,
+  loops, filters, and errors are stable.
+
+-------------------------------------------------------------------------------
+3.4 Deferred To Version 2 Or Later
+-------------------------------------------------------------------------------
+
+Do not include these in MVP or V1:
+
+- Template inheritance
+- Includes/imports
+- Macros
+- set statement
+- with statement
+- for-else
+- and/or condition expressions
+- in / not in condition expressions
+- Arithmetic expressions
+- Index access such as users[0]
+- List and dict literals
+- Function calls
+- Method calls
+- Async rendering
+- Streaming rendering
+- Compile-to-Python
+- Bytecode
+- Jinja compatibility
+- Django template compatibility
+- Django + HTMX playground
+
+===============================================================================
+4. TEMPLATE LANGUAGE
+===============================================================================
+
+-------------------------------------------------------------------------------
+4.1 Text
+-------------------------------------------------------------------------------
+
+Anything outside template markers is literal text.
+
+Template:
+
+Hello world
+
+Output:
+
+Hello world
+
+-------------------------------------------------------------------------------
+4.2 Variables
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{{ name }}
+{{ user.name }}
+{{ user.profile.email }}
+
+Resolution order:
+
+1. Look up the first name in the current context stack.
+2. For dotted parts, resolve dictionaries by key.
+3. If not a dictionary, resolve public object attributes.
+4. Never call methods.
+5. Never resolve private names that start with "_".
+
+Missing values:
+
+- Strict mode: raise RenderError.
+- Lenient mode: render an empty string.
+
+Recommended default:
+
+- strict=False for friendly CLI use
+- strict=True in tests where failures should be explicit
+
+-------------------------------------------------------------------------------
+4.3 Filters
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{{ name | upper }}
+{{ name | trim | title }}
+{{ price | round(2) }}
+{{ items | join(", ") }}
+{{ missing | default("N/A") }}
+
+Rules:
+
+- Filters apply left to right.
+- Filter names are looked up in a registry.
+- Unknown filter raises RenderError.
+- Adding a filter must not require changing lexer or parser code.
+
+Required built-in filters:
+
+- upper
+- lower
+- title
+- trim
+- default
+- length
+- join
+- round
+- escape
+- safe
+
+Filter arguments:
+
+- string literals
+- integer literals
+- float literals
+- boolean literals
+- null/none literals
+
+Do not support:
+
+- arbitrary Python expressions as arguments
+- function calls
+- list/dict literals in V1
+
+-------------------------------------------------------------------------------
+4.4 If Blocks
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{% if user.is_admin %}
+Admin
+{% elif user.is_staff %}
+Staff
+{% else %}
+User
+{% endif %}
+
+V1 supported conditions:
+
+- variable truthiness
+- not variable
+- variable == literal
+- variable != literal
+
+Examples:
+
+{% if user %}
+{% if not user.is_admin %}
+{% if user.role == "admin" %}
+{% if user.status != "disabled" %}
+
+Do not support in V1:
+
+- and
+- or
+- parentheses
+- arithmetic
+- in / not in
+- function calls
+- method calls
+- comparisons between two variable paths
+
+Recommendation:
+- Keep condition grammar small. It is enough to teach parsing without turning
+  the expression parser into a full language.
+
+-------------------------------------------------------------------------------
+4.5 For Loops
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{% for item in items %}
+- {{ loop.index }}. {{ item.name }}
+{% endfor %}
+
+Rules:
+
+- The right side must resolve to an iterable.
+- Strings should be treated as scalar values, not iterables, unless explicitly
+  allowed later.
+- Each iteration creates a child scope.
+- The loop variable shadows outer names only inside the loop.
+- The outer context is not mutated.
+
+Loop helpers:
+
+- loop.index starts at 1
+- loop.index0 starts at 0
+- loop.first is true on the first item
+- loop.last is true on the last item
+- loop.length is the number of items
+
+Missing or non-iterable value:
+
+- Strict mode: raise RenderError.
+- Lenient mode: render nothing for the loop body.
+
+Do not support in V1:
+
+- for-else
+- tuple unpacking
+- destructuring
+
+-------------------------------------------------------------------------------
+4.6 Comments
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{# this is a comment #}
+
+Rules:
+
+- Comments produce no output.
+- Comments do not appear in the AST.
+- The lexer may omit comments entirely.
+- The token dump may optionally show comments if debug visibility is useful.
+
+-------------------------------------------------------------------------------
+4.7 Raw Blocks
+-------------------------------------------------------------------------------
+
+Syntax:
+
+{% raw %}
+This is literal: {{ name }}
+{% endraw %}
+
+Output:
+
+This is literal: {{ name }}
+
+Locked implementation decision:
+- The lexer owns raw mode.
+- When the lexer sees {% raw %}, it consumes everything until {% endraw %}.
+- It emits one RAW token containing the literal inner text.
+- Unterminated raw blocks raise LexerError.
+- The parser turns RAW tokens into RawNode values.
+
+-------------------------------------------------------------------------------
+4.8 Autoescaping
+-------------------------------------------------------------------------------
+
+Autoescaping is on by default.
+
+Template:
+
+Hello {{ name }}
+
+Context:
+
+{"name": "<script>alert(1)</script>"}
+
+Output:
+
+Hello &lt;script&gt;alert(1)&lt;/script&gt;
+
+The safe filter opts out:
+
+Hello {{ name | safe }}
+
+Output:
+
+Hello <script>alert(1)</script>
+
+Implementation:
+
+- Use html.escape from the standard library.
+- Use a SafeString wrapper or equivalent marker.
+- safe returns SafeString.
+- escape returns an escaped string.
+- Renderer skips escaping SafeString values.
+
+Plain text:
+
+- Library supports autoescape=False.
+- CLI supports --no-autoescape.
+
+-------------------------------------------------------------------------------
+4.9 Whitespace Control
+-------------------------------------------------------------------------------
+
+This is V1 polish, not MVP.
+
+Syntax:
+
+{{- name -}}
+{%- if user -%}
+{#- comment -#}
+
+Recommended implementation:
+
+- Token carries trim_left and trim_right flags.
+- Parser applies trimming to adjacent TextNode values.
+- Renderer should not need to know about trim flags.
+
+Definition:
+
+- trim_left removes trailing whitespace before the tag.
+- trim_right removes leading whitespace after the tag.
+
+Add tests before enabling it broadly.
+
+===============================================================================
+5. ARCHITECTURE
+===============================================================================
+
+Dependency direction:
+
+CLI
+  -> Template facade
+    -> Renderer
+      -> Parser
+        -> Lexer
+          -> tokens/errors
+
+Shared modules:
+- nodes
+- expressions
+- filters
+- context
+- escape
+- debug
+
+Rules:
+
+- template_engine must not import CLI code.
+- template_engine must not import Django.
+- Lexer must not build AST nodes.
+- Parser must not render output.
+- Renderer must not read files or parse CLI args.
+- CLI must not implement engine logic.
+
+===============================================================================
+6. PROJECT STRUCTURE
+===============================================================================
+
+Recommended structure:
+
+mini_template_engine/
+    pyproject.toml
+    README.md
+
+    template_engine/
+        __init__.py
+        template.py
+        tokens.py
+        lexer.py
+        nodes.py
+        parser.py
+        expressions.py
+        filters.py
+        context.py
+        renderer.py
+        escape.py
+        errors.py
+        debug.py
+        cli.py
+        __main__.py
+
+    tests/
+        test_lexer.py
+        test_parser.py
+        test_expressions.py
+        test_filters.py
+        test_context.py
+        test_renderer.py
+        test_escape.py
+        test_template_facade.py
+        test_cli.py
+
+    examples/
+        hello.tmpl
+        invoice.tmpl
+        conditions.tmpl
+        loop.tmpl
+        context.json
+
+    docs/
+        adr/
+            0001-tree-walking-interpreter.md
+            0002-autoescaping-on-by-default.md
+            0003-no-arbitrary-python-expressions.md
+            0004-library-core-over-framework-first.md
+
+Recommendation:
+- Put cli.py inside template_engine so python -m template_engine can work
+  naturally.
+- Do not add a web app folder until the library and CLI are complete.
+
+===============================================================================
+7. CORE DATA CONTRACTS
+===============================================================================
+
+-------------------------------------------------------------------------------
+7.1 Token
+-------------------------------------------------------------------------------
+
+TokenType:
+
+- TEXT
+- VARIABLE
+- BLOCK
+- RAW
+- EOF
+
+Optional debug-only TokenType:
+
+- COMMENT
+
+Token fields:
+
+- type
+- value
+- line
+- column
+- trim_left
+- trim_right
+
+Rules:
+
+- line and column point to the start of the token or tag.
+- EOF is useful because parser code becomes simpler and explicit.
+
+-------------------------------------------------------------------------------
+7.2 AST Nodes
+-------------------------------------------------------------------------------
+
+Required nodes:
+
+- TemplateNode(children)
+- TextNode(text, line, column)
+- VariableNode(expression, line, column)
+- RawNode(text, line, column)
+- IfNode(branches, else_body, line, column)
+- IfBranch(condition, body)
+- ForNode(item_name, iterable_expression, body, line, column)
+
+Recommendation:
+- Do not use a deep inheritance tree.
+- Small dataclasses are enough.
+
+-------------------------------------------------------------------------------
+7.3 Expressions
+-------------------------------------------------------------------------------
+
+Required expression objects:
+
+- VariableExpression(path)
+- LiteralExpression(value)
+- FilterExpression(base, filters)
+- ConditionExpression(kind, left, right=None)
+- FilterCall(name, args)
+
+Recommended condition kinds:
+
+- truthy
+- not_truthy
+- equals
+- not_equals
+
+===============================================================================
+8. STAGE RESPONSIBILITIES
+===============================================================================
+
+-------------------------------------------------------------------------------
+8.1 Lexer
+-------------------------------------------------------------------------------
+
+Input:
+- raw source string
+
+Output:
+- iterator or list of Token objects
+
+Responsibilities:
+- Emit TEXT tokens.
+- Emit VARIABLE tokens for {{ ... }}.
+- Emit BLOCK tokens for {% ... %}.
+- Strip or optionally emit COMMENT tokens for {# ... #}.
+- Emit RAW tokens for raw blocks.
+- Track line and column.
+- Detect unterminated variable, block, comment, and raw tags.
+- Detect whitespace trim markers.
+
+Must not:
+- Build AST nodes.
+- Resolve variables.
+- Apply filters.
+- Render output.
+
+-------------------------------------------------------------------------------
+8.2 Parser
+-------------------------------------------------------------------------------
+
+Input:
+- token stream
+
+Output:
+- TemplateNode AST
+
+Responsibilities:
+- Convert tokens to AST nodes.
+- Parse variable expressions.
+- Parse if/elif/else blocks.
+- Parse for loops.
+- Parse raw tokens into RawNode.
+- Check tag balance.
+- Handle nested blocks recursively.
+- Raise ParseError for malformed syntax.
+
+Must not:
+- Read files.
+- Render output.
+- Escape values.
+- Evaluate context values.
+
+-------------------------------------------------------------------------------
+8.3 Expression Parser
+-------------------------------------------------------------------------------
+
+Input:
+- expression string from VARIABLE or BLOCK token
+
+Output:
+- expression object
+
+Responsibilities:
+- Parse dotted variable paths.
+- Parse filter chains.
+- Parse literal filter arguments.
+- Parse simple conditions.
+- Reject unsupported syntax clearly.
+
+Must not:
+- Execute Python code.
+- Import user code.
+- Call functions.
+- Mutate context.
+
+-------------------------------------------------------------------------------
+8.4 Renderer
+-------------------------------------------------------------------------------
+
+Input:
+- AST
+- context
+- render options
+
+Output:
+- rendered string
+
+Responsibilities:
+- Walk AST recursively.
+- Render TextNode literally.
+- Render RawNode literally.
+- Resolve VariableNode expressions.
+- Apply filters.
+- Escape output when autoescape is enabled.
+- Render if branches.
+- Render for loops.
+- Manage context stack.
+- Raise RenderError for runtime failures.
+
+Must not:
+- Re-lex raw source.
+- Re-parse raw source.
+- Read files.
+- Know about CLI options directly.
+
+-------------------------------------------------------------------------------
+8.5 Template Facade
+-------------------------------------------------------------------------------
+
+Public API:
+
+from template_engine import Template
+
+template = Template(source)
+output = template.render(context)
+
+Recommended signature:
+
+Template(
+    source: str,
+    *,
+    strict: bool = False,
+    autoescape: bool = True,
+    filters: FilterRegistry | None = None,
+)
+
+Methods:
+
+- render(context: dict) -> str
+- check() -> None
+- tokens() -> list[Token]
+- ast() -> TemplateNode
+
+Recommendation:
+- Template should parse once during construction or lazily on first use.
+- Repeated render calls should reuse the parsed AST.
+
+===============================================================================
+9. CONTEXT AND SCOPING
+===============================================================================
+
+ContextStack:
+
+- Holds one or more dictionaries.
+- Looks up names from innermost scope to outermost scope.
+- push(scope) enters a child scope.
+- pop() exits a child scope.
+
+For loop scoping:
+
+- Each iteration pushes a scope.
+- The scope contains the loop variable and loop helper object.
+- After the iteration, the scope is popped.
+- Outer context is never mutated.
+
+Variable lookup:
+
+1. Find the first path segment in ContextStack.
+2. For each dotted segment:
+   - If value is a dict, use key lookup.
+   - Otherwise use public attribute lookup.
+   - Reject private names beginning with "_".
+   - Reject method calls and callables.
+3. If missing, use strict/lenient policy.
+
+===============================================================================
+10. FILTER REGISTRY
+===============================================================================
+
+FilterRegistry:
+
+- register(name, function)
+- get(name)
+- apply(name, value, *args)
+
+Built-ins:
+
+- upper(value)
+- lower(value)
+- title(value)
+- trim(value)
+- default(value, fallback="")
+- length(value)
+- join(value, separator="")
+- round(value, ndigits=0)
+- escape(value)
+- safe(value)
+
+Rules:
+
+- Filters should be ordinary Python callables.
+- Filter names should be simple identifiers.
+- Unknown filters raise RenderError.
+- safe returns SafeString.
+- escape returns escaped text.
+
+===============================================================================
+11. ERROR HANDLING
+===============================================================================
+
+Base class:
+
+- TemplateEngineError
+
+Stage errors:
+
+- LexerError
+- ParseError
+- RenderError
+
+All expected template errors should include:
+
+- message
+- line when available
+- column when available
+- optional source snippet in later polish
+
+Examples:
+
+LexerError at line 1, column 7: unterminated variable tag
+ParseError at line 4, column 1: unclosed {% if %} opened at line 2
+RenderError at line 1, column 8: missing variable "user.name"
+
+Do not show Python tracebacks for expected user-facing CLI errors.
+
+===============================================================================
+12. CLI SCOPE
+===============================================================================
+
+Executable:
+
+template-engine
+python -m template_engine
+
+Basic usage:
+
+template-engine template.html --context context.json
+template-engine - --context context.json
+template-engine template.html --context context.json -o output.html
+
+Options:
+
+- template path or "-"
+- --context context.json
+- --set key=value
+- -o / --output output_path
+- --strict
+- --no-autoescape
+- --check
+- --dump-tokens
+- --dump-ast
+
+Mode behavior:
+
+- Default mode renders.
+- --check parses only and prints success or an error.
+- --dump-tokens prints token information and does not render.
+- --dump-ast prints AST information and does not render.
+- If multiple non-render modes are supplied, CLI exits with usage error.
+
+Exit codes:
+
+- 0 success
+- 1 template syntax or render error
+- 2 CLI usage/input error
+- 3 unexpected internal error
+
+Input errors:
+
+- missing template file -> 2
+- invalid JSON context -> 2
+- invalid --set format -> 2
+- unsupported argument combination -> 2
+
+Template errors:
+
+- LexerError -> 1
+- ParseError -> 1
+- RenderError -> 1
+
+===============================================================================
+13. TESTING STRATEGY
+===============================================================================
+
+Lexer tests:
+- plain text
+- variable tags
+- block tags
+- comments
+- raw blocks
+- mixed text and tags
+- line/column positions
+- unterminated variable
+- unterminated block
+- unterminated comment
+- unterminated raw block
+
+Parser tests:
+- text-only template
+- variable template
+- if block
+- if/else block
+- if/elif/else block
+- nested if
+- for loop
+- nested for
+- if inside for
+- for inside if
+- unexpected endif
+- unexpected endfor
+- unclosed if
+- unclosed for
+- malformed for tag
+
+Expression tests:
+- simple variable
+- dotted variable
+- string literal
+- integer literal
+- float literal
+- boolean literal
+- null/none literal
+- filter chain
+- filter arguments
+- truthy condition
+- not condition
+- equals condition
+- not-equals condition
+- unsupported syntax rejected
+
+Filter tests:
+- all built-in filters
+- safe returns SafeString
+- escape escapes HTML
+- unknown filter raises RenderError
+- custom filter registration works
+
+Context tests:
+- dictionary lookup
+- object attribute lookup
+- dotted lookup
+- private attribute rejected
+- callable rejected
+- missing strict raises RenderError
+- missing lenient returns empty
+- child scope shadows parent
+- child scope does not mutate parent
+
+Renderer tests:
+- text renders literally
+- raw renders literally
+- variable renders value
+- autoescape on by default
+- safe prevents escaping
+- no-autoescape disables escaping
+- if branch rendering
+- elif branch rendering
+- else branch rendering
+- for loop rendering
+- loop.index
+- loop.index0
+- loop.first
+- loop.last
+- loop.length
+- nested blocks
+- missing variable behavior
+
+CLI tests:
+- render file to stdout
+- render stdin
+- read context JSON
+- inline --set
+- output to file
+- --check valid template
+- --check invalid template
+- --dump-tokens
+- --dump-ast
+- invalid JSON exits 2
+- missing file exits 2
+- template error exits 1
+
+===============================================================================
+14. BUILD ORDER
+===============================================================================
+
+Phase 1: Contracts
+- Create project structure.
+- Add errors.py.
+- Add tokens.py.
+- Add basic nodes.py.
+
+Phase 2: Lexer MVP
+- Implement TEXT, VARIABLE, COMMENT, EOF.
+- Add line/column tracking.
+- Add LexerError for unterminated tags.
+- Add lexer tests.
+
+Phase 3: Parser MVP
+- Parse text and variable tokens.
+- Create TemplateNode, TextNode, VariableNode.
+- Add EOF handling.
+- Add parser tests.
+
+Phase 4: Expressions And Context MVP
+- Parse dotted variable paths.
+- Resolve dict keys and public object attributes.
+- Add strict/lenient missing behavior.
+- Add expression and context tests.
+
+Phase 5: Renderer MVP
+- Render TextNode and VariableNode.
+- Add html escaping.
+- Add SafeString.
+- Add safe and escape filters.
+- Add Template facade.
+- Add end-to-end tests.
+
+Phase 6: CLI MVP
+- Add argparse CLI.
+- Read template from file or stdin.
+- Read context JSON.
+- Write stdout or output file.
+- Add --check.
+- Add exit codes.
+- Add CLI tests.
+
+Phase 7: Filter System
+- Add FilterRegistry.
+- Add remaining built-in filters.
+- Add filter chain parsing.
+- Add literal filter arguments.
+- Add custom filter tests.
+
+Phase 8: If Blocks
+- Add IfNode and IfBranch.
+- Parse if/elif/else/endif.
+- Render branch selection.
+- Add nested if tests.
+
+Phase 9: For Loops And Context Stack
+- Add ForNode.
+- Parse for item in items.
+- Add ContextStack push/pop.
+- Add loop helper object.
+- Add loop and scope tests.
+
+Phase 10: Raw Blocks And Debugging
+- Add RAW token handling in lexer.
+- Add RawNode.
+- Add token dump.
+- Add AST pretty printer.
+- Add --dump-tokens and --dump-ast.
+
+Phase 11: Polish
+- Improve error messages.
+- Add examples.
+- Write README.
+- Write ADRs.
+- Add whitespace control only after the core tests are stable.
+
+===============================================================================
+15. ACCEPTANCE CRITERIA
+===============================================================================
+
+MVP is complete when:
+
+1. Raw template text can be tokenized.
+2. Tokens include line and column positions.
+3. Unterminated tags raise LexerError.
+4. Text and variable tokens parse into an AST.
+5. Variables resolve from context.
+6. Dotted access works for dicts and public object attributes.
+7. Missing variables follow strict/lenient policy.
+8. Autoescaping is on by default.
+9. safe opts out of escaping.
+10. Template(source).render(context) works.
+11. CLI can render from a file.
+12. CLI can render from stdin.
+13. CLI can read JSON context.
+14. CLI --check validates syntax.
+15. Expected CLI errors use clean exit codes.
+16. MVP tests pass.
+
+V1 is complete when:
+
+1. if/elif/else renders the correct branch.
+2. for loops render each item.
+3. for loops use child scope.
+4. loop.index, loop.index0, loop.first, loop.last, and loop.length work.
+5. Filter chains work.
+6. Filter arguments work.
+7. Custom filters can be registered.
+8. Comments produce no output.
+9. Raw blocks render literal template syntax.
+10. --strict works.
+11. --no-autoescape works.
+12. --set works.
+13. --dump-tokens works.
+14. --dump-ast works.
+15. Public errors are helpful and stage-specific.
+16. Engine modules do not import template_engine.cli.
+17. Core library imports no Django.
+18. V1 tests pass.
+19. README explains syntax, API, CLI, and limitations.
+20. ADRs explain the major design choices.
+
+===============================================================================
+16. ADRS TO WRITE
+===============================================================================
+
+ADR 0001: Tree-Walking Interpreter Over Compile-to-Python
+- Decision: render by walking the AST.
+- Reason: clarity, debuggability, and learning value.
+- Trade-off: slower than compiled templates.
+
+ADR 0002: Autoescaping On By Default
+- Decision: escape variable output by default.
+- Reason: secure default for HTML rendering.
+- Trade-off: plain-text templates may use --no-autoescape.
+
+ADR 0003: No Arbitrary Python Expressions
+- Decision: support only a small expression grammar.
+- Reason: avoid code execution and scope explosion.
+- Trade-off: less expressive than Python or Jinja.
+
+ADR 0004: Library Core Over Framework-First Design
+- Decision: build reusable library before any web layer.
+- Reason: easier testing, clearer architecture, no framework coupling.
+- Trade-off: web showcase waits until the engine is complete.
+
+===============================================================================
+17. OPTIONAL DJANGO + HTMX SHOWCASE
+===============================================================================
+
+Do not build this in V1.
+
+If added later, it should be a local playground only:
+
+- Template textarea
+- Context JSON textarea
+- Strict mode checkbox
+- Autoescape checkbox
+- Render button
+- Check syntax button
+- Token dump view
+- AST dump view
+- Error panel
+
+Rule:
+- The web layer must call the library.
+- The web layer must not contain lexer, parser, renderer, expression, filter,
+  or context logic.
+
+===============================================================================
+18. ONE-SENTENCE PROJECT DESCRIPTION
+===============================================================================
+
+A pure Python mini template engine that teaches compiler-style architecture by
+lexing template text into tokens, parsing tokens into an AST, and recursively
+walking that AST to render variables, filters, conditionals, loops, comments,
+raw blocks, and autoescaped output through a clean library API and thin CLI.

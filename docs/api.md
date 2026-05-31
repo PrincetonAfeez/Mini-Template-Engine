@@ -15,6 +15,18 @@ from template_engine import (
     format_error,
     default_filter_registry,
 )
+# AST node types (for typed AST traversal)
+from template_engine import (
+    ASTNode,
+    TemplateNode,
+    TextNode,
+    RawNode,
+    VariableNode,
+    IfNode,
+    IfBranch,
+    ForNode,
+    SetNode,
+)
 ```
 
 ## `Template`
@@ -67,6 +79,20 @@ loop/set expressions use the small expression types in `template_engine.expressi
 (for example `VariableExpression`, `FilterExpression`, `LiteralExpression`).
 
 Use `template_engine.debug.dump_ast()` for a human-readable tree when debugging.
+
+## Custom filter contract
+
+A custom filter is any callable registered via `FilterRegistry.register(name, fn)`.
+It receives the upstream value as the first positional argument and any
+filter-call arguments after that. Constraints:
+
+- Raise `RenderError` (or any exception, which will be wrapped) to signal a
+  user-facing failure. Line/column metadata is added by the renderer.
+- A filter may return the `MISSING` sentinel (`template_engine.context.MISSING`)
+  to signal "no value"; the renderer stringifies it to `""` and downstream
+  `default` filters in the same chain will substitute their fallback.
+- String-transforming filters that want to preserve trusted-HTML status (`safe`
+  / `escape` upstream) should re-wrap their output in `SafeString`.
 
 ## Built-in filters
 

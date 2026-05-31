@@ -2,8 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "== ruff =="
+echo "== ruff lint =="
 ruff check template_engine tests
+
+echo "== ruff format check =="
+ruff format --check template_engine tests
 
 echo "== mypy =="
 mypy template_engine

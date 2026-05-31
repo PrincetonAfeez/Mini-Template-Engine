@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from template_engine.errors import LexerError
-from template_engine.lexer import _find_next_opener, _line_starts, _read_tag, lex
+from template_engine.lexer import _OPENER_RE, _line_starts, _read_tag, lex
 from template_engine.tokens import TokenType
 
 
@@ -17,14 +17,15 @@ class TestLineStarts:
         assert _line_starts("a\nb\nc") == [0, 2, 4]
 
 
-class TestFindNextOpener:
+class TestOpenerScan:
     def test_no_opener(self):
-        assert _find_next_opener("plain text", 0) == (-1, "")
+        assert _OPENER_RE.search("plain text") is None
 
     def test_earliest_wins(self):
-        index, opener = _find_next_opener("a {{ x }} {% y %}", 0)
-        assert opener == "{{"
-        assert index == 2
+        match = _OPENER_RE.search("a {{ x }} {% y %}")
+        assert match is not None
+        assert match.group(0) == "{{"
+        assert match.start() == 2
 
 
 class TestReadTag:
@@ -73,9 +74,9 @@ class TestLex:
         assert tokens[0].type == TokenType.RAW
         assert tokens[0].value == "{{ x }}"
 
-    def test_raw_case_insensitive_endraw(self):
-        tokens = list(lex("{% raw %}x{% ENDRAW %}"))
-        assert tokens[0].value == "x"
+    def test_raw_endraw_is_case_sensitive(self):
+        with pytest.raises(LexerError):
+            list(lex("{% raw %}x{% ENDRAW %}"))
 
     def test_unterminated_raw(self):
         with pytest.raises(LexerError, match="unterminated raw"):

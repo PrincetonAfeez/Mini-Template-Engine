@@ -44,6 +44,16 @@ class ContextStack:
     def push(self, scope: Mapping[str, Any]) -> None:
         self.scopes.append(dict(scope))
 
+    def _push_owned(self, scope: dict[str, Any]) -> None:
+        """Push a scope dict the caller guarantees will not be reused.
+
+        Skips the defensive copy that :meth:`push` makes. Internal use only —
+        the renderer constructs a fresh dict per loop iteration and never
+        mutates it after pushing.
+        """
+
+        self.scopes.append(scope)
+
     def pop(self) -> None:
         if len(self.scopes) == 1:
             raise RenderError("cannot pop root context scope")
@@ -104,9 +114,7 @@ class ContextStack:
             if name in scope:
                 value = scope[name]
                 if callable(value):
-                    raise RenderError(
-                        f"variable {name!r} resolved to a callable", line=line, column=column
-                    )
+                    raise RenderError(f"variable {name!r} resolved to a callable", line=line, column=column)
                 return value
         return self._missing(name, line=line, column=column, lenient=lenient)
 
@@ -134,11 +142,7 @@ class ContextStack:
                     return result
                 return self._missing(full_path, line=line, column=column, lenient=lenient)
 
-            if (
-                part.isdigit()
-                and isinstance(value, Sequence)
-                and not isinstance(value, (str, bytes))
-            ):
+            if part.isdigit() and isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
                 index = int(part)
                 try:
                     result = value[index]
@@ -152,7 +156,7 @@ class ContextStack:
                     )
                 return result
 
-            object_result = self._resolve_object_attribute(
+            return self._resolve_object_attribute(
                 value,
                 part,
                 full_path=full_path,
@@ -160,8 +164,6 @@ class ContextStack:
                 column=column,
                 lenient=lenient,
             )
-            if object_result is not MISSING:
-                return object_result
         except RenderError:
             raise
         except Exception as exc:
@@ -170,8 +172,6 @@ class ContextStack:
                 line=line,
                 column=column,
             ) from exc
-
-        return self._missing(full_path, line=line, column=column, lenient=lenient)
 
     def _resolve_object_attribute(
         self,
@@ -223,6 +223,12 @@ class ContextStack:
                         column=column,
                     )
                 return result
+            if hasattr(member, "__get__"):
+                raise RenderError(
+                    f"variable {full_path!r} uses descriptor access, which is not allowed",
+                    line=line,
+                    column=column,
+                )
             return member
 
         try:
@@ -239,9 +245,7 @@ class ContextStack:
 
     def _reject_private(self, name: str, *, line: int | None, column: int | None) -> None:
         if name.startswith("_"):
-            raise RenderError(
-                f"private attribute access is not allowed: {name!r}", line=line, column=column
-            )
+            raise RenderError(f"private attribute access is not allowed: {name!r}", line=line, column=column)
 
     def _missing(
         self,

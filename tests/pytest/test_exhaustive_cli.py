@@ -68,6 +68,29 @@ class TestApplyAssignment:
         ctx: dict = {}
         _apply_assignment(ctx, "count=42")
         assert ctx["count"] == 42
+        assert isinstance(ctx["count"], int)
+
+    def test_literal_assignment_keeps_bool_and_none(self):
+        ctx: dict = {}
+        _apply_assignment(ctx, "flag=true")
+        _apply_assignment(ctx, "blank=none")
+        assert ctx["flag"] is True
+        assert ctx["blank"] is None
+
+    def test_later_set_overwrites_earlier_nested_dict(self):
+        # Pinning current behavior: a later --set with a shorter key path
+        # clobbers any deeper structure built up by previous --set values.
+        # Documented in the CLI help; this test guards against silent change.
+        ctx: dict = {}
+        _apply_assignment(ctx, "a.b=1")
+        _apply_assignment(ctx, "a=2")
+        assert ctx["a"] == 2
+
+    def test_later_set_overwrites_earlier_scalar(self):
+        ctx: dict = {}
+        _apply_assignment(ctx, "name=first")
+        _apply_assignment(ctx, "name=second")
+        assert ctx["name"] == "second"
 
     def test_nested_assignment(self):
         ctx: dict = {}
@@ -81,7 +104,16 @@ class TestApplyAssignment:
 
     @pytest.mark.parametrize(
         "assignment",
-        ["bad", "=value", "a..b=1", "a.=1", "user.name=1"],
+        [
+            "bad",
+            "=value",
+            "a..b=1",
+            "a.=1",
+            "user.name=1",
+            "9bad=1",
+            "user name=x",
+            "user.9bad=1",
+        ],
     )
     def test_invalid_assignments(self, assignment):
         ctx: dict = {"user": "not-a-dict"} if assignment == "user.name=1" else {}
@@ -172,7 +204,7 @@ class TestMain:
                 with redirect_stdout(out):
                     code = main(["-", "--check", "-v"])
         assert code == 0
-        assert "nodes=" in err.getvalue()
+        assert "top_level_nodes=" in err.getvalue()
 
     def test_dump_tokens(self):
         out = io.StringIO()
@@ -198,7 +230,7 @@ class TestMain:
                 with redirect_stdout(io.StringIO()):
                     code = main(["-", "--dump-ast", "-v"])
         assert code == 0
-        assert "nodes=" in err.getvalue()
+        assert "top_level_nodes=" in err.getvalue()
 
     def test_mutually_exclusive_modes(self):
         with patch("template_engine.cli._read_template", return_value="x"):

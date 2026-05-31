@@ -35,7 +35,7 @@ class Renderer:
         stack = ContextStack(context or {}, strict=self.strict)
         return self._render_children(node.children, stack)
 
-    def _render_children(self, children: list[ASTNode], stack: ContextStack) -> str:
+    def _render_children(self, children: tuple[ASTNode, ...] | list[ASTNode], stack: ContextStack) -> str:
         return "".join(self._render_node(child, stack) for child in children)
 
     def _render_node(self, node: ASTNode | TemplateNode, stack: ContextStack) -> str:
@@ -52,9 +52,7 @@ class Renderer:
             return ""
         if isinstance(node, IfNode):
             for branch in node.branches:
-                if self._evaluate_condition(
-                    branch.condition, stack, line=node.line, column=node.column
-                ):
+                if self._evaluate_condition(branch.condition, stack, line=node.line, column=node.column):
                     return self._render_children(branch.body, stack)
             return self._render_children(node.else_body, stack)
         if isinstance(node, ForNode):
@@ -64,15 +62,11 @@ class Renderer:
         raise RenderError(f"unknown AST node {type(node).__name__}")
 
     def _render_for(self, node: ForNode, stack: ContextStack) -> str:
-        iterable = self._evaluate(
-            node.iterable_expression, stack, line=node.line, column=node.column
-        )
+        iterable = self._evaluate(node.iterable_expression, stack, line=node.line, column=node.column)
         if iterable is MISSING or iterable is None:
             return self._missing_loop_value(node)
         if isinstance(iterable, (str, bytes)):
-            return self._missing_loop_value(
-                node, reason="for loop expected an iterable, not a string"
-            )
+            return self._missing_loop_value(node, reason="for loop expected an iterable, not a string")
         if not isinstance(iterable, Iterable):
             return self._missing_loop_value(node, reason="for loop expected an iterable")
 
@@ -80,7 +74,7 @@ class Renderer:
         chunks: list[str] = []
         length = len(items)
         for index0, item in enumerate(items):
-            stack.push(
+            stack._push_owned(
                 {
                     node.item_name: item,
                     "loop": LoopHelper(
@@ -100,9 +94,7 @@ class Renderer:
 
     def _missing_loop_value(self, node: ForNode, *, reason: str | None = None) -> str:
         if self.strict:
-            raise RenderError(
-                reason or "for loop iterable is missing", line=node.line, column=node.column
-            )
+            raise RenderError(reason or "for loop iterable is missing", line=node.line, column=node.column)
         return ""
 
     def _evaluate_condition(
@@ -125,9 +117,7 @@ class Renderer:
             return bool(left == right)
         if condition.kind == "not_equals":
             if condition.right is None:
-                raise RenderError(
-                    "not_equals condition missing right side", line=line, column=column
-                )
+                raise RenderError("not_equals condition missing right side", line=line, column=column)
             right = self._evaluate(condition.right, stack, line=line, column=column)
             return bool(left != right)
         raise RenderError(f"unknown condition kind {condition.kind!r}", line=line, column=column)
@@ -156,7 +146,7 @@ class Renderer:
                 lenient=base_lenient,
             )
             for call in expression.filters:
-                args = [self._evaluate(arg, stack, line=line, column=column) for arg in call.args]
+                args = [self._evaluate(arg, stack, line=line, column=column, lenient=base_lenient) for arg in call.args]
                 try:
                     value = self.filters.apply(call.name, value, *args)
                 except RenderError as exc:
@@ -166,11 +156,12 @@ class Renderer:
             return value
         if expression is None:
             return None
-        raise RenderError(
-            f"unknown expression {type(expression).__name__}", line=line, column=column
-        )
+        raise RenderError(f"unknown expression {type(expression).__name__}", line=line, column=column)
 
     def _stringify(self, value: Any) -> str:
+        # Filters may return :data:`MISSING` (e.g. a custom filter that wants
+        # to signal "nothing to render"); treat it identically to a missing
+        # variable so chained `default`/autoescape behavior stays consistent.
         if value is MISSING or value is None:
             return ""
         if isinstance(value, SafeString):

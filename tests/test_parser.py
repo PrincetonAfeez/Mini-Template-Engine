@@ -4,9 +4,9 @@ import unittest
 
 from template_engine.errors import ParseError
 from template_engine.lexer import lex
-from template_engine.template import Template
 from template_engine.nodes import ForNode, IfNode, TemplateNode, VariableNode
 from template_engine.parser import parse
+from template_engine.template import Template
 
 
 class ParserTests(unittest.TestCase):
@@ -27,9 +27,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ast.children[0].item_name, "user")
 
     def test_nested_blocks_parse(self):
-        ast = parse(
-            lex("{% for user in users %}{% if user.active %}{{ user.name }}{% endif %}{% endfor %}")
-        )
+        ast = parse(lex("{% for user in users %}{% if user.active %}{{ user.name }}{% endif %}{% endfor %}"))
         self.assertIsInstance(ast.children[0], ForNode)
         self.assertIsInstance(ast.children[0].body[0], IfNode)
 

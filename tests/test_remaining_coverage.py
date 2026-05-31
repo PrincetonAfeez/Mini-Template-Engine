@@ -52,7 +52,7 @@ class RemainingCoverageTests(unittest.TestCase):
         stack = ContextStack({})
         from template_engine.nodes import ForNode
 
-        node = ForNode("x", VariableExpression(("items",)), [], 1, 1)
+        node = ForNode("x", VariableExpression(("items",)), (), 1, 1)
         stack.scopes[-1]["items"] = b"abc"
         with self.assertRaises(RenderError):
             renderer._render_for(node, stack)
@@ -80,7 +80,7 @@ class RemainingCoverageTests(unittest.TestCase):
                 with redirect_stdout(out):
                     code = main(["-", "--check", "-v"])
         self.assertEqual(code, 0)
-        self.assertIn("nodes=", err.getvalue())
+        self.assertIn("top_level_nodes=", err.getvalue())
 
 
 if __name__ == "__main__":

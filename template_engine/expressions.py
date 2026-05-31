@@ -9,13 +9,12 @@ from typing import Any
 
 from .errors import ParseError
 
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PATH_SEGMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$|^\d+$")
 _INT_RE = re.compile(r"^[+-]?\d+$")
 _FLOAT_RE = re.compile(
     r"^[+-]?(?:(?:\d+\.\d*)|(?:\.\d+)|(?:\d+[eE][+-]?\d+)|(?:\d+\.\d*[eE][+-]?\d+)|(?:\.\d+[eE][+-]?\d+))$"
 )
-_NOT_PREFIX_RE = re.compile(r"^not(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
+_NOT_PREFIX_RE = re.compile(r"^not(?:\s+(.*))?$", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -31,13 +30,13 @@ class LiteralExpression:
 @dataclass(frozen=True)
 class FilterCall:
     name: str
-    args: list[Expression]
+    args: tuple[Expression, ...]
 
 
 @dataclass(frozen=True)
 class FilterExpression:
     base: Expression
-    filters: list[FilterCall]
+    filters: tuple[FilterCall, ...]
 
 
 @dataclass(frozen=True)
@@ -69,7 +68,7 @@ def parse_variable_expression(
         filters.append(_parse_filter_call(filter_text.strip(), line=line, column=column))
 
     if filters:
-        return FilterExpression(base=base, filters=filters)
+        return FilterExpression(base=base, filters=tuple(filters))
     return base
 
 
@@ -78,13 +77,21 @@ def parse_value_expression(
     *,
     line: int | None = None,
     column: int | None = None,
-) -> Expression:
+) -> ValueExpression:
     text = text.strip()
     try:
         return LiteralExpression(parse_literal(text, line=line, column=column))
     except ParseError:
         if _is_path(text):
-            return VariableExpression(tuple(text.split(".")))
+            segments = tuple(text.split("."))
+            for segment in segments:
+                if segment.startswith("_"):
+                    raise ParseError(
+                        f"path segment cannot start with '_': {segment!r}",
+                        line=line,
+                        column=column,
+                    ) from None
+            return VariableExpression(segments)
         raise ParseError(f"unsupported expression {text!r}", line=line, column=column) from None
 
 
@@ -100,7 +107,7 @@ def parse_condition_expression(
     if not text:
         raise ParseError("expected condition expression", line=line, column=column)
 
-    operator = _find_top_level_operator(text, ("==", "!="))
+    operator = _find_top_level_operator(text, ("==", "!="), line=line, column=column)
     if operator is not None:
         index, op = operator
         left_text = text[:index].strip()
@@ -136,12 +143,11 @@ def parse_literal(
     column: int | None = None,
 ) -> Any:
     text = text.strip()
-    lowered = text.lower()
-    if lowered == "true":
+    if text == "true":
         return True
-    if lowered == "false":
+    if text == "false":
         return False
-    if lowered in {"none", "null"}:
+    if text in {"none", "null"}:
         return None
     if _INT_RE.match(text):
         return int(text)
@@ -179,7 +185,7 @@ def _parse_filter_call(
     if raw_args is not None and raw_args.strip():
         for arg_text in _split_top_level(raw_args, ",", line=line, column=column):
             args.append(parse_value_expression(arg_text.strip(), line=line, column=column))
-    return FilterCall(name=name, args=args)
+    return FilterCall(name=name, args=tuple(args))
 
 
 def _is_path(text: str) -> bool:
@@ -220,7 +226,7 @@ def _split_top_level(
         if char == ")":
             paren_depth -= 1
             if paren_depth < 0:
-                paren_depth = 0
+                raise ParseError("unbalanced ')' in expression", line=line, column=column)
             continue
         if char == separator and paren_depth == 0:
             parts.append(text[start:index])
@@ -228,12 +234,20 @@ def _split_top_level(
 
     if quote is not None:
         raise ParseError("unclosed string literal in expression", line=line, column=column)
+    if paren_depth != 0:
+        raise ParseError("unbalanced '(' in expression", line=line, column=column)
 
     parts.append(text[start:])
     return parts
 
 
-def _find_top_level_operator(text: str, operators: tuple[str, ...]) -> tuple[int, str] | None:
+def _find_top_level_operator(
+    text: str,
+    operators: tuple[str, ...],
+    *,
+    line: int | None = None,
+    column: int | None = None,
+) -> tuple[int, str] | None:
     quote: str | None = None
     escaped = False
     paren_depth = 0
@@ -259,7 +273,9 @@ def _find_top_level_operator(text: str, operators: tuple[str, ...]) -> tuple[int
             index += 1
             continue
         if char == ")":
-            paren_depth = max(0, paren_depth - 1)
+            paren_depth -= 1
+            if paren_depth < 0:
+                raise ParseError("unbalanced ')' in expression", line=line, column=column)
             index += 1
             continue
 
@@ -268,4 +284,9 @@ def _find_top_level_operator(text: str, operators: tuple[str, ...]) -> tuple[int
                 if text.startswith(operator, index):
                     return index, operator
         index += 1
+
+    if quote is not None:
+        raise ParseError("unclosed string literal in expression", line=line, column=column)
+    if paren_depth != 0:
+        raise ParseError("unbalanced '(' in expression", line=line, column=column)
     return None

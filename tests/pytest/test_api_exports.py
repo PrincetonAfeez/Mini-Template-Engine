@@ -6,9 +6,11 @@ import template_engine
 from template_engine import (
     FilterRegistry,
     ForNode,
+    IfBranch,
     IfNode,
     LexerError,
     ParseError,
+    RawNode,
     RenderError,
     SetNode,
     Template,
@@ -33,9 +35,11 @@ def test_all_exports_importable():
         "ASTNode",
         "FilterRegistry",
         "ForNode",
+        "IfBranch",
         "IfNode",
         "LexerError",
         "ParseError",
+        "RawNode",
         "RenderError",
         "SafeString",
         "SetNode",
@@ -78,7 +82,9 @@ def test_format_error_without_source():
 def test_node_types_are_dataclasses():
     assert TextNode.__dataclass_fields__
     assert VariableNode.__dataclass_fields__
+    assert RawNode.__dataclass_fields__
     assert ForNode.__dataclass_fields__
     assert IfNode.__dataclass_fields__
+    assert IfBranch.__dataclass_fields__
     assert SetNode.__dataclass_fields__
     assert TemplateNode.__dataclass_fields__

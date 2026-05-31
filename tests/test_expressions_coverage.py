@@ -35,11 +35,17 @@ class ExpressionsCoverageTests(unittest.TestCase):
         with self.assertRaises(ParseError):
             parse_literal("b'bytes'")
 
-    def test_split_top_level_escape_and_paren_reset(self):
-        parts = _split_top_level(r'"a\"b", x)', ",")
+    def test_split_top_level_escape_inside_quotes(self):
+        parts = _split_top_level(r'"a\"b", x', ",")
         self.assertEqual(parts[0], r'"a\"b"')
-        parts = _split_top_level("a))", ",")
-        self.assertEqual(parts, ["a))"])
+
+    def test_split_top_level_unbalanced_close_paren_raises(self):
+        with self.assertRaises(ParseError):
+            _split_top_level("a))", ",")
+
+    def test_split_top_level_unbalanced_open_paren_raises(self):
+        with self.assertRaises(ParseError):
+            _split_top_level("a((b", ",")
 
     def test_split_top_level_unclosed_quote(self):
         with self.assertRaises(ParseError):

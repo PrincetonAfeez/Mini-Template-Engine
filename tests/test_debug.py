@@ -23,10 +23,7 @@ class DebugDumpTests(unittest.TestCase):
         self.assertIn("default", ast_dump)
 
     def test_dump_condition_expressions(self):
-        source = (
-            "{% if not user %}{% elif user.role == 'admin' %}"
-            "{% elif flag != false %}{% endif %}"
-        )
+        source = "{% if not user %}{% elif user.role == 'admin' %}{% elif flag != false %}{% endif %}"
         dump = dump_ast(Template(source).ast())
         self.assertIn("not user", dump)
         self.assertIn("==", dump)

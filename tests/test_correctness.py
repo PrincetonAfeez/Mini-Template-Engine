@@ -8,9 +8,7 @@ from template_engine.template import Template
 
 class CorrectnessTests(unittest.TestCase):
     def test_dict_loop_keys(self):
-        output = Template("{% for key in mapping %}{{ key }}:{% endfor %}").render(
-            {"mapping": {"x": 1, "y": 2}}
-        )
+        output = Template("{% for key in mapping %}{{ key }}:{% endfor %}").render({"mapping": {"x": 1, "y": 2}})
         self.assertEqual(output, "x:y:")
 
     def test_default_vs_default_if_none(self):

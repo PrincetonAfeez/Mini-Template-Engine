@@ -44,7 +44,7 @@ class FinalCoverageTests(unittest.TestCase):
                 with redirect_stdout(out):
                     code = main(["-", "--dump-ast", "-v"])
         self.assertEqual(code, 0)
-        self.assertIn("nodes=", err.getvalue())
+        self.assertIn("top_level_nodes=", err.getvalue())
 
 
 if __name__ == "__main__":

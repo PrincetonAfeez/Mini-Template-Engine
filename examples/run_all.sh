@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Bash equivalent of scripts/demo.ps1 — kept in sync with that script.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

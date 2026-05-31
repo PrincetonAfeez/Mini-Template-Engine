@@ -19,11 +19,12 @@ class TemplateEngineError(Exception):
         self.column = column
 
     def __str__(self) -> str:
-        location = ""
-        if self.line is not None and self.column is not None:
-            location = f" at line {self.line}, column {self.column}"
-        elif self.line is not None:
+        if self.line is None:
+            location = ""
+        elif self.column is None:
             location = f" at line {self.line}"
+        else:
+            location = f" at line {self.line}, column {self.column}"
         return f"{self.__class__.__name__}{location}: {self.message}"
 
 

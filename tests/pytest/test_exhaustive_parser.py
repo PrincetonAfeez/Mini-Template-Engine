@@ -29,7 +29,7 @@ class TestKeyword:
 class TestParse:
     def test_empty_template(self):
         ast = parse(lex(""))
-        assert ast.children == []
+        assert ast.children == ()
 
     def test_text_and_variable(self):
         ast = parse(lex("Hello {{ name }}!"))

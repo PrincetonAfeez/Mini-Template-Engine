@@ -26,9 +26,7 @@ class TestParseLiteral:
         ("text", "expected"),
         [
             ("true", True),
-            ("TRUE", True),
             ("false", False),
-            ("False", False),
             ("none", None),
             ("null", None),
             ("0", 0),
@@ -47,7 +45,7 @@ class TestParseLiteral:
 
     @pytest.mark.parametrize(
         "text",
-        ["unquoted", "not_a_float..", '"mismatch\'', "''bad", "b'bytes'", '"bad\\'],
+        ["unquoted", "TRUE", "False", "NONE", "not_a_float..", "\"mismatch'", "''bad", "b'bytes'", '"bad\\'],
     )
     def test_invalid_literals(self, text):
         with pytest.raises(ParseError):
@@ -103,7 +101,7 @@ class TestParseVariableExpression:
 
     @pytest.mark.parametrize(
         "text",
-        ["", "| upper", "name |", "name | default(\"x\",)"],
+        ["", "| upper", "name |", 'name | default("x",)'],
     )
     def test_invalid_variable_expressions(self, text):
         with pytest.raises(ParseError):
@@ -133,7 +131,7 @@ class TestParseConditionExpression:
 class TestParseFilterCall:
     def test_no_args(self):
         call = _parse_filter_call("upper", line=1, column=1)
-        assert call == FilterCall(name="upper", args=[])
+        assert call == FilterCall(name="upper", args=())
 
     def test_with_args(self):
         call = _parse_filter_call('default("x")', line=1, column=1)

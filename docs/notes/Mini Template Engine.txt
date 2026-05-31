@@ -1,0 +1,139 @@
+Mini Template Engine — tokenization, parsing, AST basics (Library / CLI)
+This is the parsing rung — the block names "parsing" and "small DSLs," and this project is where both land for real. You're building a tiny language: text in with {{ }} and {% %} markers, rendered output out. The whole arc is the classic compiler front-end — tokenize → parse into an AST → walk the AST to render — which is exactly the pipeline that reappears in every interpreter, query engine, and config parser you'll ever touch
+
+Focus: Algorithms and Data Structures
+Goal: step away from CRUD and build things that force you to think about algorithms, not frameworks. Pure Python again.
+
+Concepts: recursion, algorithmic thinking, custom data structures, parsing, small DSLs.
+
+Build the Library + CLI as the real project and treat Django + HTMX as a thin optional showcase layered on top — same engine, no logic duplicated.
+
+Taking "1" = tree-walking interpreter (render by recursively walking the AST — the clear, honest 12-month choice). For the other two forks I'm defaulting to the choices I flagged: if + for + filters + comments (the complete core) and autoescaping on by default (the safe, correct one, and the better ADR). Flip either with a word.
+Here's the full scope for App 52 — Mini Template Engine. No code — the reviewer-ready blueprint.
+1. Scope decisions (locked)
+
+Surface: Library core + argparse CLI. No web layer — the engine is the artifact.
+Evaluation model: Tree-walking interpreter. Parse to an AST, then recursively walk it to render every time. No compile-to-Python, no bytecode.
+Language scope: {{ variables }} with dotted access and filters, {% if/elif/else %}, {% for %}, {# comments #}, {% raw %}. No inheritance, no includes.
+Autoescaping: On by default; | safe opts out.
+Posture: Pure Python, stdlib only. The staged pipeline (lex → parse → render) is the whole point.
+
+2. The pipeline (the heart of the rung)
+The classic compiler front-end, three cleanly separated stages with typed hand-offs:
+
+Lexer → emits a token stream
+Parser → consumes tokens, builds an AST
+Renderer → walks the AST against a context, emits text
+
+Each stage is independently testable — you can dump tokens or pretty-print the AST without rendering. Recursion shows up structurally twice: parsing nested blocks, and walking the tree.
+3. Stage 1 — Lexer (tokenization)
+
+Scan raw template into tokens, emitted lazily via a generator.
+Three kinds: TEXT, VARIABLE ({{ }}), BLOCK ({% %}); plus COMMENT ({# #}) stripped here.
+Delimiter detection — everything between markers is the inner expression, everything else literal.
+Whitespace control — {%- -%} trimming so block tags don't litter output with blank lines.
+Position tracking — every token carries line/column for error reporting.
+LexerError on unterminated tags, with location.
+
+4. Stage 2 — Parser (AST construction)
+
+Consume tokens, build a tree of AST nodes — the custom data structures at the center of this rung.
+Node types: TextNode, VariableNode, IfNode, ForNode, BlockNode (container of children).
+Recursive block parsing — if/for contain other nodes, including nested blocks; managed with a stack of open blocks.
+Tag balance checking — every if needs endif, every for needs endfor; mismatched/unclosed → ParseError with location.
+A small expression sub-parser for the inside of {{ }}: variable name, dotted access, filter chain. The "DSL within the DSL."
+
+5. Stage 3 — Expressions (the mini-DSL)
+
+Variable resolution against the context.
+Dotted/attribute access — {{ user.name }}, resolving dict keys and object attributes, with a configurable miss policy.
+Filters — {{ name | upper }}, chainable ({{ name | trim | upper }}), with literal args ({{ price | round(2) }}).
+A built-in filter registry (upper, lower, default, length, join, trim, round, safe…) that's extensible — register your own; adding one never touches lexer or parser.
+Deliberately limited: no arbitrary Python, no arithmetic operators. A security/scope boundary, not a gap.
+
+6. Stage 4 — Renderer (walk the AST)
+
+Recursive tree walk: TextNode emits literally, VariableNode resolves + filters + escapes, IfNode/ForNode render children conditionally/repeatedly.
+Control flow: {% if %} / {% elif %} / {% else %} / {% endif %} (truthiness); {% for item in items %}…{% endfor %}.
+Loop variables — loop.index, loop.first, loop.last.
+Scoping — a for introduces a child scope (loop var shadows but doesn't clobber the outer context), via a context-stack (push on enter, pop on exit) — another custom structure.
+Autoescaping on by default; | safe opts out.
+
+7. Stage 5 — Comments & escapes
+
+{# ... #} stripped entirely.
+{% raw %}…{% endraw %} to emit literal {{/%} when you actually want the braces.
+
+8. Error handling (the maturity signal)
+
+Three distinct types — LexerError, ParseError, RenderError — each carrying line/column. Knowing which stage failed is the reason the stages are separate.
+Helpful messages — "unclosed {% for %} opened at line 4," not "list index out of range."
+Strict vs. lenient mode — undefined variables raise (strict) or render empty (lenient), configurable.
+
+9. CLI layer
+
+Render a template file against a context (JSON file or inline key=value args).
+--strict flag; output to stdout or -o file; stdin support (-).
+--check mode — parse only, report syntax errors without rendering (a linter for your own language).
+Clean exit codes: 0 ok, 1 template/syntax error, 2 usage error.
+
+10. Architecture & layering (the system-design signal)
+
+template_engine (library core) — Template(source).render(context) -> str. Three stages as separate modules with typed hand-offs (tokens between 1→2, AST between 2→3). Pure Python, zero framework.
+Inspectability — dump tokens, pretty-print the AST — each stage observable without running the next. That staged-pipeline separation is the architecture lesson, the same shape as App 50's engine→formatter split, scaled up.
+Extensibility seam — the filter registry is the one deliberate extension point.
+Dependency direction: CLI → Template → (Renderer → Parser → Lexer) → nodes/tokens. Strictly one-way.
+
+11. Proposed structure
+template_engine/
+  template_engine/
+    __init__.py
+    tokens.py          # Token, TokenType
+    lexer.py           # source -> token stream (generator)
+    nodes.py           # AST node types (TextNode, VariableNode, IfNode, ForNode...)
+    parser.py          # tokens -> AST, block stack, balance checking
+    expressions.py     # inner {{ }} sub-parser: lookups, dotted access, filter chain
+    filters.py         # filter registry + built-ins
+    context.py         # context-stack / scoping
+    renderer.py        # walk AST -> text, autoescape
+    errors.py          # LexerError, ParseError, RenderError
+    template.py        # Template facade: source -> render(context)
+  cli.py               # argparse, context loading, --check, exit codes
+  __main__.py
+  tests/
+    test_lexer.py
+    test_parser.py
+    test_expressions.py
+    test_filters.py
+    test_renderer.py
+    test_errors.py
+    test_cli.py
+  README.md
+12. Build order
+
+tokens.py + errors.py — define the contracts first.
+lexer.py — text/variable/block/comment tokens, position tracking; test the token stream directly.
+nodes.py — the AST node types.
+parser.py — token stream → AST, starting with TextNode + VariableNode only, then add the block stack.
+renderer.py — walk text + variables end-to-end to prove the pipeline.
+expressions.py + filters.py — dotted access, then the filter chain and registry.
+IfNode (with elif/else) in parser + renderer.
+ForNode with context.py scoping and loop variables.
+Autoescaping + | safe; comments and {% raw %}.
+Whitespace control, strict/lenient mode.
+cli.py — wire files/stdin/context → Template, add --check, exit codes.
+Tests + README + the ADRs.
+
+13. Testing strategy
+
+Lexer: snapshot token streams for mixed text/tags, whitespace trimming, unterminated tags.
+Parser: AST shape for nested blocks; balance errors (if without endif) raise with correct location.
+Expressions/filters: dotted access on dicts and objects, filter chaining, args, missing-key policy.
+Renderer: if/elif/else branches, for-loop output, loop variables, scope shadowing, autoescape on/off via | safe.
+CLI: render-to-stdout, --check reports errors, exit codes, stdin piping.
+
+14. The ADRs you'd write
+
+"Tree-walking interpreter over compile-to-Python." Rationale: clarity and debuggability over raw speed; walking the AST is easy to read and verify, and the staged pipeline stays observable. Trade-off: slower than a compiled template (re-walked every render) — acceptable, since performance is an explicit non-goal.
+"Autoescaping on by default, | safe to opt out." Rationale: secure-by-default is the correct posture for anything rendering into HTML; opting out should be the deliberate act, not opting in. Trade-off: plain-text templates carry escaping overhead they don't need — minor and acceptable.
+"No arbitrary Python expressions inside {{ }}." Rationale: evaluating template-supplied Python is a code-execution risk and a scope explosion; a fixed lookup-plus-filter grammar is safe and sufficient. Trade-off: less expressive than Jinja — deliberate; complex logic belongs in the calling code, not the template.

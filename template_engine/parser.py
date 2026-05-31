@@ -37,7 +37,7 @@ class Parser:
         children, stop = self._parse_nodes(stop_tags=set())
         if stop is not None:
             raise self._unexpected_block(stop)
-        return TemplateNode(children)
+        return TemplateNode(tuple(children))
 
     def _parse_nodes(self, *, stop_tags: set[str]) -> tuple[list[ASTNode], Token | None]:
         children: list[ASTNode] = []
@@ -80,9 +80,7 @@ class Parser:
                     continue
                 raise self._unexpected_block(token)
 
-            raise ParseError(
-                f"unexpected token {token.type.value}", line=token.line, column=token.column
-            )
+            raise ParseError(f"unexpected token {token.type.value}", line=token.line, column=token.column)
 
     def _parse_if(self) -> IfNode:
         first = self._advance()
@@ -95,7 +93,7 @@ class Parser:
 
         branches: list[IfBranch] = []
         body, stop = self._parse_nodes(stop_tags={"elif", "else", "endif"})
-        branches.append(IfBranch(condition, body))
+        branches.append(IfBranch(condition, tuple(body)))
         else_body: list[ASTNode] = []
 
         while stop is not None and _keyword(stop.value) == "elif":
@@ -107,7 +105,7 @@ class Parser:
                 column=elif_token.column,
             )
             body, stop = self._parse_nodes(stop_tags={"elif", "else", "endif"})
-            branches.append(IfBranch(elif_condition, body))
+            branches.append(IfBranch(elif_condition, tuple(body)))
 
         if stop is not None and _keyword(stop.value) == "else":
             else_token = self._advance()
@@ -130,11 +128,9 @@ class Parser:
         if _keyword(endif.value) != "endif":
             raise self._unexpected_block(endif)
         if endif.value.strip() != "endif":
-            raise ParseError(
-                "{% endif %} does not take arguments", line=endif.line, column=endif.column
-            )
+            raise ParseError("{% endif %} does not take arguments", line=endif.line, column=endif.column)
 
-        return IfNode(branches, else_body, first.line, first.column)
+        return IfNode(tuple(branches), tuple(else_body), first.line, first.column)
 
     def _parse_for(self) -> ForNode:
         first = self._advance()
@@ -148,9 +144,7 @@ class Parser:
 
         item_name, iterable_text = match.groups()
         if item_name.startswith("_"):
-            raise ParseError(
-                "loop variable cannot start with '_'", line=first.line, column=first.column
-            )
+            raise ParseError("loop variable cannot start with '_'", line=first.line, column=first.column)
 
         iterable_expression = parse_variable_expression(
             iterable_text,
@@ -166,12 +160,12 @@ class Parser:
             )
 
         endfor = self._advance()
+        if _keyword(endfor.value) != "endfor":
+            raise self._unexpected_block(endfor)
         if endfor.value.strip() != "endfor":
-            raise ParseError(
-                "{% endfor %} does not take arguments", line=endfor.line, column=endfor.column
-            )
+            raise ParseError("{% endfor %} does not take arguments", line=endfor.line, column=endfor.column)
 
-        return ForNode(item_name, iterable_expression, body, first.line, first.column)
+        return ForNode(item_name, iterable_expression, tuple(body), first.line, first.column)
 
     def _parse_set(self) -> SetNode:
         token = self._advance()
@@ -185,9 +179,7 @@ class Parser:
 
         name, expression_text = match.groups()
         if name.startswith("_"):
-            raise ParseError(
-                "set variable cannot start with '_'", line=token.line, column=token.column
-            )
+            raise ParseError("set variable cannot start with '_'", line=token.line, column=token.column)
 
         expression = parse_variable_expression(
             expression_text.strip(),

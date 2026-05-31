@@ -44,6 +44,7 @@ class TestExpressionsRemainingGaps:
         result = _find_top_level_operator(r'name == "a\"b"', ("==",))
         assert result == (5, "==")
 
+
 class TestContextRemainingGaps:
     def test_callable_after_nested_resolution(self):
         """Covers defensive callable check after multi-segment path resolution."""

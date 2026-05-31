@@ -23,9 +23,12 @@ jobs:
       - name: Install build tools
         run: pip install build twine
 
-      - name: Run tests
+      - name: Run quality gate
         run: |
           pip install -e ".[dev]" -c constraints-dev.txt
+          ruff check template_engine tests
+          ruff format --check template_engine tests
+          mypy template_engine
           coverage run -m pytest -q
           coverage report --fail-under=95
 

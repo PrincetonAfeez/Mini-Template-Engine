@@ -64,6 +64,4 @@ Thumbs.db
 *.log
 *.tmp
 
-# Project notes / scope docs
-mini_template_engine_improved_full_scope.txt
-Mini Template Engine.txt
+# (project scratch notes now live under docs/notes/ and are tracked)

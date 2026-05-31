@@ -13,7 +13,7 @@ class SafeString(str):
 
 
 def escape_html(value: Any) -> SafeString:
-    if value is MISSING:
+    if value is MISSING or value is None:
         return SafeString("")
     if isinstance(value, SafeString):
         return value
@@ -21,7 +21,7 @@ def escape_html(value: Any) -> SafeString:
 
 
 def mark_safe(value: Any) -> SafeString:
-    if value is MISSING:
+    if value is MISSING or value is None:
         return SafeString("")
     if isinstance(value, SafeString):
         return value

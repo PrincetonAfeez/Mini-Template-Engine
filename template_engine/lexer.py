@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import bisect
 import re
-from collections.abc import Iterator
 
 from .errors import LexerError
 from .tokens import Token, TokenType
 
-_ENDRAW_RE = re.compile(r"{%-?\s*endraw\s*-?%}", flags=re.IGNORECASE)
+_ENDRAW_RE = re.compile(r"{%-?\s*endraw\s*-?%}")
+_OPENER_RE = re.compile(r"\{\{|\{%|\{#")
 
 
-def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
-    """Tokenize template source.
+def lex(source: str, *, include_comments: bool = False) -> list[Token]:
+    """Tokenize template source into a token list.
 
-    The implementation keeps a token list internally so whitespace trim markers
-    can alter adjacent text tokens, while still exposing an iterator.
+    Whitespace trim markers retroactively modify already-emitted text tokens,
+    so the lexer materializes the full list before returning.
     """
 
     line_starts = _line_starts(source)
@@ -62,12 +62,14 @@ def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
             tokens.pop()
 
     while index < len(source):
-        next_index, opener = _find_next_opener(source, index)
-        if next_index == -1:
+        match = _OPENER_RE.search(source, index)
+        if match is None:
             emit_text(source[index:], index)
             index = len(source)
             break
 
+        next_index = match.start()
+        opener = match.group(0)
         emit_text(source[index:next_index], index)
         start = next_index
         line, column = line_col(start)
@@ -93,7 +95,7 @@ def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
         if token.trim_left:
             trim_previous()
 
-        if token.value.strip().lower() == "raw":
+        if token.value.strip() == "raw":
             raw_start = next_after_block
             match = _ENDRAW_RE.search(source, raw_start)
             if match is None:
@@ -120,7 +122,7 @@ def lex(source: str, *, include_comments: bool = False) -> Iterator[Token]:
 
     eof_line, eof_column = line_col(len(source))
     tokens.append(Token(TokenType.EOF, "", eof_line, eof_column))
-    yield from tokens
+    return tokens
 
 
 def _read_tag(
@@ -156,18 +158,10 @@ def _read_tag(
     return Token(token_type, value, line, column, trim_left, trim_right), close_index + len(closer)
 
 
-def _find_next_opener(source: str, start: int) -> tuple[int, str]:
-    candidates: list[tuple[int, str]] = []
-    for opener in ("{{", "{%", "{#"):
-        index = source.find(opener, start)
-        if index != -1:
-            candidates.append((index, opener))
-    if not candidates:
-        return -1, ""
-    return min(candidates, key=lambda item: item[0])
-
-
 def _line_starts(source: str) -> list[int]:
+    # Tracks line breaks on '\n' only. '\r\n' is handled because '\n' is still
+    # present; bare '\r' line endings (legacy Mac) are intentionally not
+    # supported — modern Python source/template files use '\n' or '\r\n'.
     starts = [0]
     for index, char in enumerate(source):
         if char == "\n":

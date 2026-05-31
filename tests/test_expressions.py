@@ -23,7 +23,7 @@ class ExpressionTests(unittest.TestCase):
         expression = parse_variable_expression('name | trim | default("N/A")')
         self.assertIsInstance(expression, FilterExpression)
         self.assertEqual(expression.filters[0].name, "trim")
-        self.assertEqual(expression.filters[1].args, [LiteralExpression("N/A")])
+        self.assertEqual(expression.filters[1].args, (LiteralExpression("N/A"),))
 
     def test_literals(self):
         self.assertEqual(parse_literal('"x"'), "x")
@@ -43,7 +43,7 @@ class ExpressionTests(unittest.TestCase):
     def test_filter_arguments_may_be_variables(self):
         expression = parse_variable_expression("price | default(fallback)")
         self.assertIsInstance(expression, FilterExpression)
-        self.assertEqual(expression.filters[0].args, [VariableExpression(("fallback",))])
+        self.assertEqual(expression.filters[0].args, (VariableExpression(("fallback",)),))
 
     def test_conditions(self):
         truthy = parse_condition_expression("user")

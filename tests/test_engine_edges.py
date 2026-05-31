@@ -44,7 +44,9 @@ class EngineEdgeTests(unittest.TestCase):
             stack.pop()
 
     def test_strict_loop_invalid_iterable(self):
-        with self.assertRaises(Exception):
+        from template_engine.errors import RenderError
+
+        with self.assertRaises(RenderError):
             Template("{% for x in n %}{% endfor %}", strict=True).render({"n": 5})
 
 

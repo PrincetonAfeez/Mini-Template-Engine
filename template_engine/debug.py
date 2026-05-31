@@ -23,9 +23,7 @@ def dump_tokens(tokens: list[Token]) -> str:
         if token.trim_right:
             flags.append("trim_right")
         flag_text = f" {' '.join(flags)}" if flags else ""
-        lines.append(
-            f"{token.type.value} line={token.line} col={token.column}{flag_text} value={token.value!r}"
-        )
+        lines.append(f"{token.type.value} line={token.line} col={token.column}{flag_text} value={token.value!r}")
     return "\n".join(lines)
 
 
@@ -63,9 +61,7 @@ def _dump_node(node: Any, lines: list[str], indent: int) -> None:
                 _dump_node(child, lines, indent + 2)
         return
     if isinstance(node, ForNode):
-        lines.append(
-            f"{prefix}ForNode({node.item_name} in {_format_expression(node.iterable_expression)})"
-        )
+        lines.append(f"{prefix}ForNode({node.item_name} in {_format_expression(node.iterable_expression)})")
         for child in node.body:
             _dump_node(child, lines, indent + 1)
         return
@@ -82,9 +78,7 @@ def _format_expression(expression: Any) -> str:
         return repr(expression.value)
     if isinstance(expression, FilterExpression):
         filters = " | ".join(
-            f"{call.name}({', '.join(_format_expression(arg) for arg in call.args)})"
-            if call.args
-            else call.name
+            f"{call.name}({', '.join(_format_expression(arg) for arg in call.args)})" if call.args else call.name
             for call in expression.filters
         )
         return f"{_format_expression(expression.base)} | {filters}"

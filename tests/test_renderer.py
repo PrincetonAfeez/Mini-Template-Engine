@@ -68,6 +68,26 @@ class RendererTests(unittest.TestCase):
         output = Template('{{ missing | default("N/A") }}', strict=True).render({})
         self.assertEqual(output, "N/A")
 
+    def test_strict_default_filter_with_missing_variable_arg(self):
+        output = Template("{{ missing | default(fallback) }}", strict=True).render({})
+        self.assertEqual(output, "")
+
+    def test_custom_filter_returning_missing_renders_empty(self):
+        from template_engine.context import MISSING
+        from template_engine.filters import FilterRegistry, default_filter_registry
+
+        registry = default_filter_registry()
+        registry.register("blank", lambda _value: MISSING)
+        output = Template("[{{ x | blank }}]", filters=registry).render({"x": "hi"})
+        self.assertEqual(output, "[]")
+
+        # And chains well with `default` for a fallback.
+        registry2 = FilterRegistry()
+        registry2.extend(default_filter_registry())
+        registry2.register("blank", lambda _value: MISSING)
+        output = Template('{{ x | blank | default("fb") }}', filters=registry2).render({"x": "hi"})
+        self.assertEqual(output, "fb")
+
     def test_set_block_renders(self):
         output = Template('{% set label = "Hi" %}{{ label }} {{ name }}').render({"name": "there"})
         self.assertEqual(output, "Hi there")
@@ -81,7 +101,7 @@ class RendererTests(unittest.TestCase):
         output = Template("{{ items.0 }}").render({"items": ["alpha", "beta"]})
         self.assertEqual(output, "alpha")
 
-    def test_property_resolution_error_becomes_render_error(self):
+    def test_property_access_is_rejected_as_render_error(self):
         class Broken:
             @property
             def value(self):
@@ -89,6 +109,14 @@ class RendererTests(unittest.TestCase):
 
         with self.assertRaises(RenderError):
             Template("{{ item.value }}").render({"item": Broken()})
+
+    def test_resolution_runtime_error_becomes_render_error(self):
+        class BadMapping(dict):
+            def __contains__(self, key):
+                raise RuntimeError("mapping boom")
+
+        with self.assertRaises(RenderError):
+            Template("{{ data.x }}").render({"data": BadMapping({"x": 1})})
 
 
 if __name__ == "__main__":

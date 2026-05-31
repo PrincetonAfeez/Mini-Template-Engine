@@ -1,8 +1,11 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 
-Write-Host "== ruff ==" -ForegroundColor Cyan
+Write-Host "== ruff lint ==" -ForegroundColor Cyan
 ruff check template_engine tests
+
+Write-Host "== ruff format check ==" -ForegroundColor Cyan
+ruff format --check template_engine tests
 
 Write-Host "== mypy ==" -ForegroundColor Cyan
 mypy template_engine

@@ -60,13 +60,13 @@ class TestFormatExpression:
         assert _format_expression(LiteralExpression(42)) == "42"
 
     def test_filter_no_args(self):
-        expr = FilterExpression(VariableExpression(("x",)), [FilterCall("upper", [])])
+        expr = FilterExpression(VariableExpression(("x",)), (FilterCall("upper", ()),))
         assert _format_expression(expr) == "x | upper"
 
     def test_filter_with_args(self):
         expr = FilterExpression(
             VariableExpression(("x",)),
-            [FilterCall("default", [LiteralExpression("fb")])],
+            (FilterCall("default", (LiteralExpression("fb"),)),),
         )
         assert "default('fb')" in _format_expression(expr)
 

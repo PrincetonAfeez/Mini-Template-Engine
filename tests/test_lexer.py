@@ -28,12 +28,8 @@ class LexerTests(unittest.TestCase):
 
     def test_comments_are_stripped(self):
         tokens = list(lex("Hello {# hidden #} world"))
-        self.assertEqual(
-            [token.type for token in tokens], [TokenType.TEXT, TokenType.TEXT, TokenType.EOF]
-        )
-        self.assertEqual(
-            "".join(token.value for token in tokens if token.type == TokenType.TEXT), "Hello  world"
-        )
+        self.assertEqual([token.type for token in tokens], [TokenType.TEXT, TokenType.TEXT, TokenType.EOF])
+        self.assertEqual("".join(token.value for token in tokens if token.type == TokenType.TEXT), "Hello  world")
 
     def test_raw_block_preserves_inner_markers(self):
         tokens = list(lex("{% raw %}{{ name }}{% endraw %}"))
@@ -54,10 +50,9 @@ class LexerTests(unittest.TestCase):
         text = "".join(token.value for token in tokens if token.type == TokenType.TEXT)
         self.assertEqual(text, "Hello!")
 
-    def test_endraw_is_case_insensitive(self):
-        tokens = list(lex("{% raw %}{{ name }}{% ENDRAW %}"))
-        self.assertEqual(tokens[0].type, TokenType.RAW)
-        self.assertEqual(tokens[0].value, "{{ name }}")
+    def test_endraw_requires_lowercase(self):
+        with self.assertRaises(LexerError):
+            list(lex("{% raw %}{{ name }}{% ENDRAW %}"))
 
     def test_include_comments_flag(self):
         tokens = list(lex("{# hidden #}", include_comments=True))

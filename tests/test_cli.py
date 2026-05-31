@@ -39,9 +39,7 @@ class CliTests(unittest.TestCase):
     def test_output_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "out.txt"
-            result = self.run_cli(
-                "-", "--set", "name=Princeton", "-o", str(output), input_text="Hi {{ name }}"
-            )
+            result = self.run_cli("-", "--set", "name=Princeton", "-o", str(output), input_text="Hi {{ name }}")
 
             self.assertEqual(result.returncode, 0)
             self.assertEqual(output.read_text(encoding="utf-8"), "Hi Princeton")

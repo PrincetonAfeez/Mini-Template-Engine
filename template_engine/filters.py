@@ -74,25 +74,38 @@ def default_filter_registry() -> FilterRegistry:
 
 
 def _string(value: Any) -> str:
-    if value is MISSING:
+    if value is MISSING or value is None:
         return ""
     return str(value)
 
 
+def _preserve_safety(original: Any, transformed: str) -> str:
+    """Re-mark ``transformed`` as ``SafeString`` when the original was safe.
+
+    Built-in string transforms operate on already-escaped/trusted strings; if
+    callers piped through ``escape`` or ``safe`` upstream, the renderer would
+    otherwise autoescape the transformed value a second time.
+    """
+
+    if isinstance(original, SafeString):
+        return SafeString(transformed)
+    return transformed
+
+
 def _upper(value: Any) -> str:
-    return _string(value).upper()
+    return _preserve_safety(value, _string(value).upper())
 
 
 def _lower(value: Any) -> str:
-    return _string(value).lower()
+    return _preserve_safety(value, _string(value).lower())
 
 
 def _title(value: Any) -> str:
-    return _string(value).title()
+    return _preserve_safety(value, _string(value).title())
 
 
 def _trim(value: Any) -> str:
-    return _string(value).strip()
+    return _preserve_safety(value, _string(value).strip())
 
 
 def _default(value: Any, fallback: Any = "") -> Any:
@@ -126,7 +139,11 @@ def _join(value: Any, separator: Any = "") -> str:
 def _round(value: Any, ndigits: Any = 0) -> Any:
     if value is MISSING or value is None:
         return ""
-    return builtins.round(float(value), int(ndigits))
+    digits = int(ndigits)
+    rounded = builtins.round(float(value), digits)
+    if digits <= 0:
+        return int(rounded)
+    return rounded
 
 
 def _escape(value: Any) -> SafeString:

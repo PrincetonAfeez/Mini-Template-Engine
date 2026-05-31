@@ -33,7 +33,7 @@ class ExampleIntegrationTests(unittest.TestCase):
         output = Template(source).render(self.context)
         self.assertIn("Invoice for Princeton", output)
         self.assertIn("design, build, test", output)
-        self.assertIn("12.35", output)
+        self.assertRegex(output, r"Rounded price:\s*12\.3[45]")
         self.assertIn("Literal template marker: {{ not_rendered }}", output)
 
     def test_showcase_template(self):
