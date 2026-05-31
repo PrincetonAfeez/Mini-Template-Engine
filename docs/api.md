@@ -103,9 +103,14 @@ filter-call arguments after that. Constraints:
 | `default_if_none(fallback="")` | Fallback only for missing/`None` |
 | `length` | `len()` of value |
 | `join(separator="")` | Join iterables (not strings) |
-| `round(ndigits=0)` | Numeric rounding |
+| `round(ndigits=0)` | Numeric rounding (returns `int` when `ndigits <= 0`) |
 | `escape` | HTML escape → `SafeString` |
 | `safe` | Mark trusted HTML |
+
+`escape` and `safe` both return a `SafeString`, and `escape` is a no-op on a
+value that is already a `SafeString`. As a result, `{{ x | safe | escape }}`
+emits `x` unescaped — once a value is marked `safe` it is treated as final and
+not re-encoded. Apply `escape` to raw values, not to already-`safe` ones.
 
 ## Errors
 
