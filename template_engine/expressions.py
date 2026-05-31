@@ -92,7 +92,11 @@ def parse_value_expression(
                         column=column,
                     ) from None
             return VariableExpression(segments)
-        raise ParseError(f"unsupported expression {text!r}", line=line, column=column) from None
+        raise ParseError(
+            f"unsupported expression {text!r}; expected a literal or an ASCII dotted path",
+            line=line,
+            column=column,
+        ) from None
 
 
 def parse_condition_expression(
@@ -107,11 +111,21 @@ def parse_condition_expression(
     if not text:
         raise ParseError("expected condition expression", line=line, column=column)
 
+    boolean_op = _find_top_level_operator(text, (" and ", " or "), line=line, column=column)
+    if boolean_op is not None:
+        raise ParseError(
+            "boolean operators 'and'/'or' are not supported; use nested {% if %} blocks",
+            line=line,
+            column=column,
+        )
+
     operator = _find_top_level_operator(text, ("==", "!="), line=line, column=column)
     if operator is not None:
         index, op = operator
         left_text = text[:index].strip()
         right_text = text[index + len(op) :].strip()
+        if not left_text or not right_text:
+            raise ParseError(f"missing operand for {op!r}", line=line, column=column)
         left = parse_value_expression(left_text, line=line, column=column)
         right = parse_value_expression(right_text, line=line, column=column)
         return ConditionExpression(
