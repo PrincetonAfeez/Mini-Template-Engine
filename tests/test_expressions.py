@@ -61,6 +61,23 @@ class ExpressionTests(unittest.TestCase):
         with self.assertRaises(ParseError):
             parse_condition_expression("user and admin")
 
+    def test_boolean_operators_rejected_with_clear_message(self):
+        for source in ("user and admin", "a or b", "user.role == x and ready"):
+            with self.assertRaises(ParseError) as ctx:
+                parse_condition_expression(source)
+            self.assertIn("boolean operators", str(ctx.exception))
+
+    def test_boolean_word_inside_string_literal_is_not_flagged(self):
+        condition = parse_condition_expression('label == "rock and roll"')
+        self.assertEqual(condition.kind, "equals")
+        self.assertEqual(condition.right, LiteralExpression("rock and roll"))
+
+    def test_missing_comparison_operand_reports_clear_message(self):
+        for source in ("a ==", "!= b"):
+            with self.assertRaises(ParseError) as ctx:
+                parse_condition_expression(source)
+            self.assertIn("missing operand", str(ctx.exception))
+
     def test_unclosed_string_in_filter_argument(self):
         with self.assertRaises(ParseError):
             parse_variable_expression('x | default("unclosed)')
