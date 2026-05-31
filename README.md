@@ -49,8 +49,7 @@ API reference: [docs/api.md](docs/api.md)
 ## Quick start
 
 ```bash
-pip install mini-template-engine
-# or from source:
+# install from source (a PyPI release is planned, not yet published)
 pip install -e ".[dev]"
 python -m template_engine examples/hello.tmpl --context examples/context.json
 pytest
@@ -145,13 +144,15 @@ Results are saved to `benchmarks/results.json`. Sample run on Windows / Python 3
 
 Complexity: lex **O(n)**, parse **O(n)**, render **O(nodes)**. Profiling shows render dominates on large templates because loop bodies materialize iterables.
 
-## Install from PyPI
+## Install
 
 ```bash
-pip install mini-template-engine
+pip install -e ".[dev]"
 ```
 
-See [docs/PYPI.md](docs/PYPI.md) for maintainer release steps.
+A PyPI release is planned but not yet published; once it lands the package will
+be installable as `pip install mini-template-engine`. See
+[docs/PYPI.md](docs/PYPI.md) for the maintainer release steps.
 
 ## Contributing
 

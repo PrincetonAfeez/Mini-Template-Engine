@@ -1,12 +1,9 @@
 # Publishing to PyPI
 
-## Install from PyPI
-
-```bash
-pip install mini-template-engine
-```
-
-Package page: https://pypi.org/project/mini-template-engine/
+> **Status: not yet published.** Until the first release is cut, install from
+> source (`pip install -e ".[dev]"`). After publishing, the package will be
+> available at `pip install mini-template-engine`
+> (https://pypi.org/project/mini-template-engine/).
 
 ## One-time maintainer setup
 
