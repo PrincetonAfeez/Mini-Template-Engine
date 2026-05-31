@@ -92,7 +92,8 @@ template-engine examples/showcase.tmpl --context examples/context.json
 template-engine --version
 ```
 
-Load extra filters: `--filter-module my_module` (module must expose `filter_registry`).
+Load extra filters: `--filter-module my_module` (module must expose `filter_registry`),
+or `--filter-module my_module:my_registry` to pick a specific `FilterRegistry` attribute.
 
 Debug workflow for graders:
 
