@@ -15,7 +15,7 @@ dependencies.
 - **Documented architecture** — [5 ADRs](docs/adr/) with grammar and lifecycle docs
 - **Security defaults** — HTML autoescaping, no `eval`, no callable/method access
 - **Developer tooling** — CLI debug modes, Ruff, Mypy, 95%+ coverage gate in CI
-- **Portfolio ready** — examples, benchmarks, reflection write-up, MIT license
+- **Portfolio materials included** — examples, benchmarks, reflection write-up, MIT license
 
 ## Learning goals
 
@@ -28,6 +28,13 @@ This project demonstrates:
 5. Secure-by-default output encoding for HTML templates
 
 See [docs/reflection.md](docs/reflection.md) for trade-offs and v2 ideas.
+
+## Audit status
+
+An internal **30-item audit checklist** covers documentation accuracy, security defaults,
+parser edge cases, and renderer behavior. Regression coverage lives in
+[`tests/test_audit_regressions.py`](tests/test_audit_regressions.py). CI runs Ruff, Mypy,
+and pytest with a **95%+ coverage** gate.
 
 ## Architecture
 
@@ -151,9 +158,11 @@ Complexity: lex **O(n)**, parse **O(n)**, render **O(nodes)**. Profiling shows r
 pip install -e ".[dev]"
 ```
 
-A PyPI release is planned but not yet published; once it lands the package will
-be installable as `pip install mini-template-engine`. See
-[docs/PYPI.md](docs/PYPI.md) for the maintainer release steps.
+A PyPI release is planned but not yet published; the
+[`pyproject.toml`](pyproject.toml) PyPI URL is reserved for the release workflow and
+does not yet point to a live package. Once published, install with
+`pip install mini-template-engine`. See [docs/PYPI.md](docs/PYPI.md) for maintainer
+release steps.
 
 ## Contributing
 

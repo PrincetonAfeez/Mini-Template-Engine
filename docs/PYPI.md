@@ -1,9 +1,10 @@
 # Publishing to PyPI
 
-> **Status: not yet published.** Until the first release is cut, install from
-> source (`pip install -e ".[dev]"`). After publishing, the package will be
-> available at `pip install mini-template-engine`
-> (https://pypi.org/project/mini-template-engine/).
+> **Status: not yet published.** The PyPI project URL in `pyproject.toml`
+> (https://pypi.org/project/mini-template-engine/) is reserved and documented for the
+> release workflow; the package is not yet on PyPI. Until the first release is cut,
+> install from source (`pip install -e ".[dev]"`). After publishing, the package will
+> be available at `pip install mini-template-engine`.
 
 ## One-time maintainer setup
 
