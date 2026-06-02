@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/token.schema.json",
+  "title": "Mini Template Engine Token Schema",
+  "description": "Schema for lexer tokens shared by the lexer and parser.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "value",
+    "line",
+    "column"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "TEXT",
+        "VARIABLE",
+        "BLOCK",
+        "RAW",
+        "COMMENT",
+        "EOF"
+      ]
+    },
+    "value": {
+      "type": "string"
+    },
+    "line": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "column": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "trim_left": {
+      "type": "boolean",
+      "default": false
+    },
+    "trim_right": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "examples": [
+    {
+      "type": "VARIABLE",
+      "value": "user.name | title",
+      "line": 1,
+      "column": 8,
+      "trim_left": false,
+      "trim_right": false
+    }
+  ]
+}

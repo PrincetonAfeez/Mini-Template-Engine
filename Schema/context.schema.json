@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/context.schema.json",
+  "title": "Mini Template Engine Context Schema",
+  "description": "A simple validation schema for JSON context files passed through --context or Template.render(context). The engine expects the top-level context to be a JSON object; nested values may be scalars, arrays, objects, or null.",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/$defs/contextValue"
+  },
+  "examples": [
+    {
+      "user": {
+        "name": "Princeton",
+        "is_admin": true,
+        "is_staff": false
+      },
+      "users": [
+        {
+          "name": "Ava"
+        },
+        {
+          "name": "Mia"
+        }
+      ],
+      "items": [
+        "design",
+        "build",
+        "test"
+      ],
+      "price": 12.345
+    }
+  ],
+  "$defs": {
+    "contextValue": {
+      "description": "Any JSON-safe value available to templates through dotted paths and loop iteration.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contextValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/contextValue"
+          }
+        }
+      ]
+    }
+  }
+}

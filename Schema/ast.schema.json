@@ -1,0 +1,500 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/ast.schema.json",
+  "title": "Mini Template Engine AST Schema",
+  "description": "A JSON representation schema for the immutable AST dataclasses returned by Template.ast(). This is a portable documentation/validation schema, not a replacement for the Python dataclasses.",
+  "$ref": "#/$defs/templateNode",
+  "$defs": {
+    "literalExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "value"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "LiteralExpression"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "variableExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "path"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "VariableExpression"
+        },
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^([A-Za-z][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*|[0-9]+)$",
+            "not": {
+              "pattern": "^_"
+            }
+          }
+        }
+      }
+    },
+    "filterCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "args"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$|^[A-Za-z_][A-Za-z0-9_]*$",
+          "not": {
+            "pattern": "^_"
+          }
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expression"
+          }
+        }
+      }
+    },
+    "filterExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "base",
+        "filters"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "FilterExpression"
+        },
+        "base": {
+          "$ref": "#/$defs/expression"
+        },
+        "filters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/filterCall"
+          }
+        }
+      }
+    },
+    "conditionExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "left"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "truthy",
+            "not_truthy",
+            "equals",
+            "not_equals"
+          ]
+        },
+        "left": {
+          "$ref": "#/$defs/expression"
+        },
+        "right": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expression"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "equals",
+                  "not_equals"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "right"
+            ],
+            "properties": {
+              "right": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "truthy",
+                  "not_truthy"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "right": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/literalExpression"
+        },
+        {
+          "$ref": "#/$defs/variableExpression"
+        },
+        {
+          "$ref": "#/$defs/filterExpression"
+        }
+      ]
+    },
+    "sourcePosition": {
+      "type": "object",
+      "required": [
+        "line",
+        "column"
+      ],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "templateNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "children"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "TemplateNode"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astNode"
+          }
+        }
+      }
+    },
+    "textNode": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/sourcePosition"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "node_type",
+            "text",
+            "line",
+            "column"
+          ],
+          "properties": {
+            "node_type": {
+              "const": "TextNode"
+            },
+            "text": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      ]
+    },
+    "rawNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "text",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "RawNode"
+        },
+        "text": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "variableNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "expression",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "VariableNode"
+        },
+        "expression": {
+          "$ref": "#/$defs/expression"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ifBranch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "condition",
+        "body"
+      ],
+      "properties": {
+        "condition": {
+          "$ref": "#/$defs/conditionExpression"
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astNode"
+          }
+        }
+      }
+    },
+    "ifNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "branches",
+        "else_body",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "IfNode"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ifBranch"
+          }
+        },
+        "else_body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astNode"
+          }
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "forNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "item_name",
+        "iterable_expression",
+        "body",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "ForNode"
+        },
+        "item_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$|^[A-Za-z_][A-Za-z0-9_]*$",
+          "not": {
+            "pattern": "^_"
+          }
+        },
+        "iterable_expression": {
+          "$ref": "#/$defs/expression"
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astNode"
+          }
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "setNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "name",
+        "expression",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "node_type": {
+          "const": "SetNode"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$|^[A-Za-z_][A-Za-z0-9_]*$",
+          "not": {
+            "pattern": "^_"
+          }
+        },
+        "expression": {
+          "$ref": "#/$defs/expression"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "astNode": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/textNode"
+        },
+        {
+          "$ref": "#/$defs/rawNode"
+        },
+        {
+          "$ref": "#/$defs/variableNode"
+        },
+        {
+          "$ref": "#/$defs/ifNode"
+        },
+        {
+          "$ref": "#/$defs/forNode"
+        },
+        {
+          "$ref": "#/$defs/setNode"
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "node_type": "TemplateNode",
+      "children": [
+        {
+          "node_type": "TextNode",
+          "text": "Hello, ",
+          "line": 1,
+          "column": 1
+        },
+        {
+          "node_type": "VariableNode",
+          "expression": {
+            "node_type": "VariableExpression",
+            "path": [
+              "user",
+              "name"
+            ]
+          },
+          "line": 1,
+          "column": 8
+        }
+      ]
+    }
+  ]
+}

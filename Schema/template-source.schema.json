@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/template-source.schema.json",
+  "title": "Mini Template Engine Template Source Descriptor Schema",
+  "description": "A lightweight metadata wrapper for a template source string. This schema checks the shape of a template descriptor; full template syntax is validated by Template.check(), the parser, or the CLI --check mode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "Raw template text containing literals, {{ variable }} tags, {% block %} tags, raw blocks, and comments."
+    },
+    "name": {
+      "type": "string",
+      "description": "Optional human-readable template name or path.",
+      "minLength": 1
+    },
+    "strict": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, missing variables and invalid loop iterables should be treated as render errors."
+    },
+    "autoescape": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true, rendered output is HTML-escaped unless explicitly marked safe."
+    },
+    "expected_context_schema": {
+      "$ref": "context.schema.json",
+      "description": "Optional inline context contract for this template."
+    }
+  },
+  "examples": [
+    {
+      "name": "hello.tmpl",
+      "source": "Hello, {{ user.name | title }}!",
+      "strict": false,
+      "autoescape": true
+    }
+  ]
+}

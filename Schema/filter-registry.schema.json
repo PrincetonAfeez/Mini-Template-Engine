@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/filter-registry.schema.json",
+  "title": "Mini Template Engine Filter Registry Descriptor Schema",
+  "description": "Documents the shape of a filter-registry descriptor for built-in or custom filter modules. Python callables themselves are not JSON-serializable, so this schema validates metadata about filter names, arguments, return behavior, and safety notes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry_name",
+    "filters"
+  ],
+  "properties": {
+    "registry_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "filters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$|^[A-Za-z_][A-Za-z0-9_]*$",
+            "not": {
+              "pattern": "^_"
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "returns_safe_string": {
+            "type": "boolean",
+            "default": false
+          },
+          "may_raise_render_error": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "registry_name": "default_filter_registry",
+      "filters": [
+        {
+          "name": "upper",
+          "description": "Convert a value to uppercase."
+        },
+        {
+          "name": "default",
+          "description": "Fallback when a value is missing, null, or empty.",
+          "arguments": [
+            "fallback"
+          ]
+        },
+        {
+          "name": "safe",
+          "description": "Mark trusted HTML as safe.",
+          "returns_safe_string": true
+        }
+      ]
+    }
+  ]
+}

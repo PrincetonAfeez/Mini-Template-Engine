@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PrincetonAfeez/Mini-Template-Engine/schema/cli-options.schema.json",
+  "title": "Mini Template Engine CLI Options Schema",
+  "description": "A JSON representation of supported template-engine CLI options. Useful for generated configs, examples, or documentation tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "template": {
+      "type": "string",
+      "default": "-",
+      "description": "Template path, or '-' for stdin."
+    },
+    "context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Path to a JSON context file."
+    },
+    "set": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*=.*$"
+      },
+      "default": []
+    },
+    "output": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional output path."
+    },
+    "strict": {
+      "type": "boolean",
+      "default": false
+    },
+    "no_autoescape": {
+      "type": "boolean",
+      "default": false
+    },
+    "check": {
+      "type": "boolean",
+      "default": false
+    },
+    "dump_tokens": {
+      "type": "boolean",
+      "default": false
+    },
+    "dump_ast": {
+      "type": "boolean",
+      "default": false
+    },
+    "include_comments": {
+      "type": "boolean",
+      "default": false
+    },
+    "filter_module": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Import path to a module or module:attribute providing a FilterRegistry."
+    },
+    "version": {
+      "type": "boolean",
+      "default": false
+    },
+    "verbose": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "check",
+          "dump_tokens"
+        ],
+        "properties": {
+          "check": {
+            "const": true
+          },
+          "dump_tokens": {
+            "const": true
+          }
+        }
+      },
+      {
+        "required": [
+          "check",
+          "dump_ast"
+        ],
+        "properties": {
+          "check": {
+            "const": true
+          },
+          "dump_ast": {
+            "const": true
+          }
+        }
+      },
+      {
+        "required": [
+          "dump_tokens",
+          "dump_ast"
+        ],
+        "properties": {
+          "dump_tokens": {
+            "const": true
+          },
+          "dump_ast": {
+            "const": true
+          }
+        }
+      }
+    ]
+  },
+  "examples": [
+    {
+      "template": "examples/hello.tmpl",
+      "context": "examples/context.json",
+      "strict": false,
+      "no_autoescape": false,
+      "verbose": true
+    }
+  ]
+}
